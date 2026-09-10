@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHAT & WATCH - Đăng ký</title>
+    
+    <!-- link  -->
+    <link rel="stylesheet" href="./assests/reset.css">
+    <!-- <link rel="stylesheet" href="../assests/grid.css"> -->
+    <link rel="stylesheet" href="/frontend/css/signup_style.css">
+
+    <!-- font  -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+</head>
+<body>
+    <div class="web_login">
+        <div class="login_container">
+            <div class="login_intro">
+                <img src="/assests/img/logo.png" alt="" class="login_logo">
+                <h1 class="login_title">Chat & <span>Watch</span></h1>
+                <p class="login_desc">Chat và xem phim</h1>
+                <div class="login_list">
+                    <div class="login_item">
+                        <div class="login_icon">
+                            <i class="fa-solid fa-comment-dots"></i>
+                        </div>
+                        <label class="login_label">
+                            Chat nhóm làm việc
+                        </label>
+                    </div>
+                    <div class="separate"></div>
+                    <div class="login_item">
+                        <div class="login_icon">
+                            <i class="fa-solid fa-users"></i>
+                        </div>
+                        <label class="login_label">
+                            Kết nối mọi người
+                        </label>
+                    </div>
+                    <div class="separate"></div>
+                    <div class="login_item">
+                        <div class="login_icon">
+                            <i class="fa-solid fa-play"></i>
+                        </div>
+                        <label class="login_label">
+                            Giải trí cùng nhau
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="login_content">
+                <div class="login_body">
+                    <h2 class="login_header">Xin chào bạn mới</h2>
+                    <p class="login_desc">Hãy đăng ký để chat chít với ní</p>
+                    <form class="form">
+                        <div class="form_group">
+                            <div class="form_input">
+                                <div class="input_icon">
+                                    <i class="fa-solid fa-lock"></i>
+                                </div>
+                                <input 
+                                    type="text" 
+                                    name="" 
+                                    id="username" 
+                                    class="username"
+                                    placeholder="Nhập tên người dùng">
+                            </div>
+                            <span class="error"></span>
+                        </div>
+                        
+                        <div class="form_group">
+                            <div class="form_input">
+                                <div class="input_icon">
+                                    <i class="fa-solid fa-lock"></i>
+                                </div>
+                                <input 
+                                    type="password" 
+                                    name="" 
+                                    id="password" 
+                                    class="password"
+                                    placeholder="Nhập mật khẩu">
+                                <div class="input_icon unhide_password">
+                                    <i class="fa-solid fa-eye-slash hide_password"></i>
+                                </div>
+                                <div class="input_icon hide_password hide">
+                                    <i class="fa-solid fa-eye"></i>
+                                </div>
+                            </div>
+                            <div class="form_group">
+                            <div class="form_input">
+                                <div class="input_icon">
+                                    <i class="fa-solid fa-lock"></i>
+                                </div>
+                                <input 
+                                    type="password" 
+                                    name="" 
+                                    id="confirm-password" 
+                                    class="confirm-password"
+                                    placeholder="Nhập lại mật khẩu">
+                                <div class="input_icon unhide_password">
+                                    <i class="fa-solid fa-eye-slash hide_password"></i>
+                                </div>
+                                <div class="input_icon hide_password hide">
+                                    <i class="fa-solid fa-eye"></i>
+                                </div>
+                            </div>
+                            <span class="error"></span>
+                        </div>
+                                
+                        <div class="form_act">
+                            <button type="submit" class="signin_act">
+                                Đăng ký
+                            </button>
+                        </div>
+                        <div class="signup_option">
+                            <label>
+                                Bạn đã có tài khoản.
+                                <a href="./login.html" class="form-option__link signup-option">Đăng nhập ngay</a>
+                            </label>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="./frontend/js/signup_main.js"></script>
+</body>
+</html>
