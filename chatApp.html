@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,13 +16,19 @@
     <link rel="stylesheet" href="./assests/reset.css">
     <!-- <link rel="stylesheet" href="../assests/grid.css"> -->
     <link rel="stylesheet" href="./frontend/css/chatApp_style.css">
+    <link rel="stylesheet" href="./frontend/css/modals.css">
 
     <!-- font  -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
+        integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
+
 <body>
     <div class="app">
         <header class="header">
@@ -40,7 +47,7 @@
                 </div>
                 <div class="header_user" id="usermenu_btn">
                     <img src="./assests/img/default_avt.png" alt="" class="header_img" id="user_avt">
-                    <span class="header_name" id="user_name">Nguyễn Thanh Yên</span>
+                    <span class="header_name" id="user_name"></span>
                     <div class="header_icon">
                         <i class="fa-solid fa-angle-down"></i>
                     </div>
@@ -50,517 +57,648 @@
                             <div class="user_icon">
                                 <i class="fa-regular fa-circle-user"></i>
                             </div>
-                            <span class="user_title">Thông tin cá nhân</span>
+                            <span class="user_title" id="profile">Thông tin cá nhân</span>
+                        </div>
+                        <div class="user_item">
+                            <div class="user_icon">
+                                <i class="fa-solid fa-lock"></i>
+                            </div>
+                            <span class="user_title" id="userPassword">Mật khẩu</span>
                         </div>
                         <div class="user_item">
                             <div class="user_icon">
                                 <i class="fa-solid fa-arrow-right-to-bracket"></i>
                             </div>
-                            <span class="user_title">Đăng xuất</span>
+                            <span class="user_title" id="logout">Đăng xuất</span>
                         </div>
                     </div>
-                    
+
                 </div>
             </div>
 
         </header>
-
         <!-- ================= MAIN ================= -->
-    <main class="main">
-        <!-- sidebar  -->
-        <aside class="sidebar">
+        <main class="main">
+            <!-- sidebar  -->
+            <aside class="sidebar">
 
-            <div class="sidebar_top">
-                <!-- Tin nhắn -->
-                <div class="sidebar_item active" data-page="message">
-                    <div class="sidebar_icon">
-                        <i class="fa-regular fa-message"></i>
-                        <span class="sidebar_badge" id="unreadBadge">
-                            3
+                <div class="sidebar_top">
+                    <!-- Tin nhắn -->
+                    <div class="sidebar_item active" data-page="message">
+                        <div class="sidebar_icon">
+                            <i class="fa-regular fa-message"></i>
+                            <span class="sidebar_badge" id="unreadBadge">
+                                3
+                            </span>
+                        </div>
+                        <span class="sidebar_tooltip">
+                            Tin nhắn
                         </span>
                     </div>
-                    <span class="sidebar_tooltip">
-                        Tin nhắn
-                    </span>
+
+                    <!-- Bạn bè -->
+                    <div class="sidebar_item" data-page="friend">
+                        <div class="sidebar_icon">
+                            <i class="fa-solid fa-address-book"></i>
+                        </div>
+
+                        <span class="sidebar_tooltip">
+                            Bạn bè
+                        </span>
+                    </div>
+
+                    <!-- Xem phim -->
+                    <div class="sidebar_item" data-page="watch">
+                        <div class="sidebar_icon">
+                            <i class="fa-brands fa-youtube"></i>
+                        </div>
+
+                        <span class="sidebar_tooltip">
+                            Xem phim
+                        </span>
+                    </div>
+
                 </div>
 
-                <!-- Bạn bè -->
-                <div class="sidebar_item" data-page="friend">
-                    <div class="sidebar_icon">
-                        <i class="fa-solid fa-address-book"></i>
-                    </div>
+                <div class="sidebar_bottom">
+                    <!-- Cài đặt -->
+                    <div class="sidebar_item" data-page="setting">
+                        <div class="sidebar_icon">
+                            <i class="fa-solid fa-gear"></i>
+                        </div>
 
-                    <span class="sidebar_tooltip">
-                        Bạn bè
-                    </span>
+                        <span class="sidebar_tooltip">
+                            Cài đặt
+                        </span>
+                    </div>
                 </div>
+            </aside>
 
-                <!-- Xem phim -->
-                <div class="sidebar_item" data-page="watch">
-                    <div class="sidebar_icon">
-                        <i class="fa-brands fa-youtube"></i>
-                    </div>
+            <!-- content  -->
+            <section class="content">
+                <div class="background_page active" id="messengerPage">
+                    <section class="conversation">
+                        <div class="page_header">
+                            <h2 class="page_title">
+                                Tin nhắn
+                            </h2>
+                            <div class="page_acts">
+                                <button class="page_act" id="addFriendBtn" title="Thêm bạn">
+                                    <i class="fa-solid fa-user-plus"></i>
+                                </button>
 
-                    <span class="sidebar_tooltip">
-                        Xem phim
-                    </span>
-                </div>
+                                <button class="page_act" id="createGroupBtn" title="Tạo nhóm">
+                                    <i class="fa-solid fa-users"></i>
+                                </button>
 
-            </div>
+                            </div>
+                        </div>
 
-            <div class="sidebar_bottom">
-                <!-- Cài đặt -->
-                <div class="sidebar_item" data-page="setting">
-                    <div class="sidebar_icon">
-                        <i class="fa-solid fa-gear"></i>
-                    </div>
-
-                    <span class="sidebar_tooltip">
-                        Cài đặt
-                    </span>
-                </div>
-            </div>
-        </aside>
-
-        <!-- content  -->
-        <section class="content">
-            <div class="background_page" id="messengerPage">
-                <section class="conversation">
-                    <div class="page_header">
-                        <h2 class="page_title">
-                            Tin nhắn
-                        </h2>
-                        <div class="page_acts">
-    
-                            <button
-                                class="page_act"
-                                id="addFriendBtn"
-                                title="Thêm bạn"
-                            >
-                                <i class="fa-solid fa-user-plus"></i>
-                            </button>
-    
-                            <button
-                                class="page_act"
-                                id="createGroupBtn"
-                                title="Tạo nhóm"
-                            >
-                                <i class="fa-solid fa-users"></i>
-                            </button>
-    
-                        </div>
-                    </div>
-    
-                    <!-- Search -->
-                    <div class="conversation_search">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                        <input
-                            type="text"
-                            id="conversationSearch"
-                            placeholder="Tìm kiếm theo tên..."
-                            autocomplete="off"
-                        >
-                    </div>
-    
-                    <!-- Filter -->
-                    <div class="conversation_filter">
-                        <button
-                            class="filter_item active"
-                            data-filter="all"
-                        >
-                            Tất cả
-                        </button>
-                        <button
-                            class="filter_item"
-                            data-filter="unread"
-                        >
-                            Chưa đọc
-                        </button>
-                        <button
-                            class="filter_item"
-                            data-filter="group"
-                        >
-                            Nhóm
-                        </button>
-                    </div>
-    
-                    <!-- Danh sách được JS render -->
-                    <div class="conversation_list" id="conversationList">
-                        <!-- item  -->
-                         
-                        <div class="conversation_item active">
-                            <div class="conversation_avatar">
-                                <img
-                                    src="./assests/img/default_avt.png"
-                                    alt=""
-                                >
-                                <span class="online"></span>
-                            </div>
-    
-                            <div class="conversation_content">
-                                <div class="conversation_top">
-                                    <h3>
-                                        Nguyễn Văn A
-                                    </h3>
-                                    <span class="conversation_time">
-                                        14:25
-                                    </span>
-                                </div>
-    
-                                <div class="conversation_bottom">
-                                    <p class="conversation_message">
-    
-                                        <span class="message_sender">
-                                            Nguyễn Văn A:
-                                        </span>
-    
-                                        <span class="message_preview">
-                                            Bạn đang làm gì vậy?
-                                        </span>
-    
-                                    </p>
-                                    <span class="unread">
-                                        2
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-    
-                        <div class="conversation_item">
-                            <div class="conversation_avatar">
-                                <img
-                                    src="./assests/img/default_avt.png"
-                                    alt=""
-                                >
-                                <span class="online"></span>
-                            </div>
-    
-                            <div class="conversation_content">
-                                <div class="conversation_top">
-                                    <h3>
-                                        Nguyễn Văn A
-                                    </h3>
-                                    <span class="conversation_time">
-                                        14:25
-                                    </span>
-                                </div>
-    
-                                <div class="conversation_bottom">
-                                    <p class="conversation_message">
-    
-                                        <span class="message_sender">
-                                            Nguyễn Văn A:
-                                        </span>
-    
-                                        <span class="message_preview">
-                                            Bạn đang làm gì ?
-                                        </span>
-    
-                                    </p>
-                                    <span class="unread">
-                                        2
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                    </div>
-                </section>
-    
-                <!-- Chat  -->
-                <section class="chat">
-                    <!-- Trạng thái ban đầu -->
-                    <div class="chat_empty" id="chatEmpty">
-                        <div class="chat_empty_icon">
-                            <i class="fa-regular fa-comments"></i>
-                        </div>
-                        <h2>
-                            Chào mừng đến với CHAT & WATCH!
-                        </h2>
-                        <p>
-                            Chọn một cuộc trò chuyện để bắt đầu
-                            nhắn tin với bạn bè.
-                        </p>
-                    </div>
-                    <!-- Phòng chat -->
-                    <div class="chat_room" id="chatRoom ">
-                        <!-- Chat header -->
-                        <div class="chat_header">
-                            <div class="chat_user">
-                                <div class="chat_avatar">
-                                    <img
-                                        src="./assests/img/default_avt.png"
-                                        alt=""
-                                        id="chatAvatar"
-                                    >
-                                    <span
-                                        class="online"
-                                        id="chatOnline"
-                                    ></span>
-                                </div>
-    
-                                <div class="chat_user_info">
-                                    <h2 id="chatUserName">
-                                        Người dùng
-                                    </h2>
-                                    <span id="chatUserStatus">
-                                        Đang hoạt động
-                                    </span>
-                                </div>
-                            </div>
-    
-                            <div class="chat_actions">
-                                <button title="Gọi thoại">
-                                    <i class="fa-solid fa-phone"></i>
-                                </button>
-                                <button title="Gọi video">
-                                    <i class="fa-solid fa-video"></i>
-                                </button>
-                                <button title="Thêm">
-                                    <i class="fa-solid fa-ellipsis"></i>
-                                </button>
-                            </div>
-                        </div>
-    
-                        <!-- Messages -->
-                        <div
-                            class="chat_body"
-                            id="chatBody"
-                        >
-                        </div>
-    
-                        <!-- Nhập tin -->
-                        <div class="chat_footer">
-                            <div class="chat_tools">
-                                <button title="Emoji">
-                                    <i class="fa-regular fa-face-smile"></i>
-                                </button>
-                                <button title="Đính kèm">
-                                    <i class="fa-solid fa-paperclip"></i>
-                                </button>
-                                <button title="Hình ảnh">
-                                    <i class="fa-regular fa-image"></i>
-                                </button>
-                                <button title="Tin nhắn thoại">
-                                    <i class="fa-solid fa-microphone"></i>
-                                </button>
-                            </div>
-                            <div class="chat_input">
-                                <input
-                                    type="text"
-                                    id="messageInput"
-                                    placeholder="Nhập tin nhắn..."
-                                    autocomplete="off"
-                                >
-                                <button
-                                    class="send_button"
-                                    id="sendMessageBtn"
-                                    title="Gửi"
-                                >
-                                    <i class="fa-solid fa-paper-plane"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-            </div>
-            <!-- Friend Page -->
-            <div class="background_page active" id="friendPage">
-                <aside class="friend_sidebar">
-                    <div class="page_header">
-                        <h2 class="page_title">
-                            Danh sách bạn bè
-                        </h2>
-                        <div class="page_acts">
-    
-                            <button
-                                class="page_act"
-                                id="addFriendBtn"
-                                title="Thêm bạn"
-                            >
-                                <i class="fa-solid fa-user-plus"></i>
-                            </button>
-    
-                            <button
-                                class="page_act"
-                                id="createGroupBtn"
-                                title="Tạo nhóm"
-                            >
-                                <i class="fa-solid fa-users"></i>
-                            </button>
-    
-                        </div>
-                    </div>
-                    <div class="friend_menu">
-                        <button class="friend_menu_item active" data-friend-page="friends">
-                            <div class="friend_menu_icon">
-                                <i class="fa-solid fa-user-group"></i>
-                            </div>
-                            <div class="friend_menu_text">
-                                <span>Danh sách bạn bè</span>
-                                <small id="friendCount">0 bạn</small>
-                            </div>
-                            <i class="fa-solid fa-angle-right"></i>
-                        </button>
-                        <button class="friend_menu_item" data-friend-page="groups">
-                            <div class="friend_menu_icon">
-                                <i class="fa-solid fa-users"></i>
-                            </div>
-                            <div class="friend_menu_text">
-                                <span>Nhóm của tôi</span>
-                                <small id="groupCount">0 nhóm</small>
-                            </div>
-                            <i class="fa-solid fa-angle-right"></i>
-                        </button>
-                        <button class="friend_menu_item" data-friend-page="requests">
-                            <div class="friend_menu_icon">
-                                <i class="fa-solid fa-user-plus"></i>
-                            </div>
-                            <div class="friend_menu_text">
-                                <span>Lời mời kết bạn</span>
-                                <small id="requestCount">0 lời mời</small>
-                            </div>
-                            <span class="friend_request_badge">2</span>
-                        </button>
-                    </div>
-                </aside>
-                <section class="friend_content">
-                    <div class="friend_section" id="friendListPage">
-                        <div class="friend_content_header">
-                            <div>
-                                <h1>Bạn bè của bạn</h1>
-                                <p>Kết nối và trò chuyện với những người bạn đã thêm.</p>
-                            </div>
-                            <button class="friend_add_button" id="friendAddButton">
-                                <i class="fa-solid fa-user-plus"></i>
-                                <span>Thêm bạn</span>
-                            </button>
-                        </div>
-                        <div class="friend_search">
+                        <!-- Search -->
+                        <div class="conversation_search">
                             <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" id="friendSearch" placeholder="Tìm kiếm bạn bè...">
+                            <input type="text" id="conversationSearch" placeholder="Tìm kiếm theo tên..."
+                                autocomplete="off">
                         </div>
-                        <div class="friend_list" id="friendList">
-                            <div class="friend_item">
-                                <div class="friend_avatar">
+
+                        <!-- Filter -->
+                        <div class="conversation_filter">
+                            <button class="filter_item active" data-filter="all">
+                                Tất cả
+                            </button>
+                            <button class="filter_item" data-filter="unread">
+                                Chưa đọc
+                            </button>
+                            <button class="filter_item" data-filter="group">
+                                Nhóm
+                            </button>
+                        </div>
+
+                        <!-- Danh sách được JS render -->
+                        <div class="conversation_list" id="conversationList">
+                            <!-- item  -->
+
+                            <div class="conversation_item active">
+                                <div class="conversation_avatar">
                                     <img src="./assests/img/default_avt.png" alt="">
                                     <span class="online"></span>
                                 </div>
-                                <div class="friend_info">
-                                    <h3>Nguyễn Văn A</h3>
-                                </div>
-                                <div class="friend_item_actions">
-                                    <button title="Nhắn tin">
-                                        <i class="fa-regular fa-comment"></i>
-                                    </button>
-                                    <button title="Xem thông tin">
-                                        <i class="fa-solid fa-ellipsis"></i>
-                                    </button>
+
+                                <div class="conversation_content">
+                                    <div class="conversation_top">
+                                        <h3>
+                                            Nguyễn Văn A
+                                        </h3>
+                                        <span class="conversation_time">
+                                            14:25
+                                        </span>
+                                    </div>
+
+                                    <div class="conversation_bottom">
+                                        <p class="conversation_message">
+
+                                            <span class="message_sender">
+                                                Nguyễn Văn A:
+                                            </span>
+
+                                            <span class="message_preview">
+                                                Bạn đang làm gì vậy?
+                                            </span>
+
+                                        </p>
+                                        <span class="unread">
+                                            2
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="friend_item">
-                                <div class="friend_avatar">
+
+                            <div class="conversation_item">
+                                <div class="conversation_avatar">
                                     <img src="./assests/img/default_avt.png" alt="">
+                                    <span class="online"></span>
                                 </div>
-                                <div class="friend_info">
-                                    <h3>Trần Văn B</h3>
+
+                                <div class="conversation_content">
+                                    <div class="conversation_top">
+                                        <h3>
+                                            Nguyễn Văn A
+                                        </h3>
+                                        <span class="conversation_time">
+                                            14:25
+                                        </span>
+                                    </div>
+
+                                    <div class="conversation_bottom">
+                                        <p class="conversation_message">
+
+                                            <span class="message_sender">
+                                                Nguyễn Văn A:
+                                            </span>
+
+                                            <span class="message_preview">
+                                                Bạn đang làm gì ?
+                                            </span>
+
+                                        </p>
+                                        <span class="unread">
+                                            2
+                                        </span>
+                                    </div>
                                 </div>
-                                <div class="friend_item_actions">
-                                    <button title="Nhắn tin">
-                                        <i class="fa-regular fa-comment"></i>
+                            </div>
+
+                        </div>
+                    </section>
+
+                    <!-- Chat  -->
+                    <section class="chat">
+                        <!-- Trạng thái ban đầu -->
+                        <div class="chat_empty" id="chatEmpty">
+                            <div class="chat_empty_icon">
+                                <i class="fa-regular fa-comments"></i>
+                            </div>
+                            <h2>
+                                Chào mừng đến với CHAT & WATCH!
+                            </h2>
+                            <p>
+                                Chọn một cuộc trò chuyện để bắt đầu
+                                nhắn tin với bạn bè.
+                            </p>
+                        </div>
+                        <!-- Phòng chat -->
+                        <div class="chat_room" id="chatRoom">
+                            <!-- Chat header -->
+                            <div class="chat_header">
+                                <div class="chat_user">
+                                    <div class="chat_avatar">
+                                        <img src="./assests/img/default_avt.png" alt="" id="chatAvatar">
+                                        <span class="online" id="chatOnline"></span>
+                                    </div>
+
+                                    <div class="chat_user_info">
+                                        <h2 id="chatUserName">
+                                            Người dùng
+                                        </h2>
+                                        <span id="chatUserStatus">
+                                            Đang hoạt động
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="chat_actions">
+                                    <button title="Gọi thoại">
+                                        <i class="fa-solid fa-phone"></i>
                                     </button>
-                                    <button title="Xem thông tin">
+                                    <button title="Gọi video">
+                                        <i class="fa-solid fa-video"></i>
+                                    </button>
+                                    <button title="Thêm">
                                         <i class="fa-solid fa-ellipsis"></i>
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    <div class="friend_section" id="groupListPage">
-                        <div class="friend_content_header">
-                            <div>
-                                <h1>Nhóm của tôi</h1>
-                                <p>Những nhóm bạn đang tham gia.</p>
+
+                            <!-- Messages -->
+                            <div class="chat_body" id="chatBody">
                             </div>
-                            <button class="friend_add_button">
-                                <i class="fa-solid fa-plus"></i>
-                                <span>Tạo nhóm</span>
-                            </button>
+
+                            <!-- Nhập tin -->
+                            <div class="chat_footer">
+                                <div class="chat_tools">
+                                    <button title="Emoji">
+                                        <i class="fa-regular fa-face-smile"></i>
+                                    </button>
+                                    <button title="Đính kèm">
+                                        <i class="fa-solid fa-paperclip"></i>
+                                    </button>
+                                    <button title="Hình ảnh">
+                                        <i class="fa-regular fa-image"></i>
+                                    </button>
+                                    <button title="Tin nhắn thoại">
+                                        <i class="fa-solid fa-microphone"></i>
+                                    </button>
+                                </div>
+                                <div class="chat_input">
+                                    <input type="text" id="messageInput" placeholder="Nhập tin nhắn..."
+                                        autocomplete="off">
+                                    <button class="send_button" id="sendMessageBtn" title="Gửi">
+                                        <i class="fa-solid fa-paper-plane"></i>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="friend_list">
-                            <div class="friend_item group_item">
-                                <div class="friend_avatar group_avatar">
+                    </section>
+
+                </div>
+                <!-- Friend Page -->
+                <div class="background_page" id="friendPage">
+                    <aside class="friend_sidebar">
+                        <div class="page_header">
+                            <h2 class="page_title">
+                                Danh sách bạn bè
+                            </h2>
+                            <div class="page_acts">
+
+                                <button class="page_act" id="addFriendBtn" title="Thêm bạn">
+                                    <i class="fa-solid fa-user-plus"></i>
+                                </button>
+
+                                <button class="page_act" id="createGroupBtn" title="Tạo nhóm">
+                                    <i class="fa-solid fa-users"></i>
+                                </button>
+
+                            </div>
+                        </div>
+                        <div class="friend_menu">
+                            <button class="friend_menu_item active" data-friend-page="friends">
+                                <div class="friend_menu_icon">
+                                    <i class="fa-solid fa-user-group"></i>
+                                </div>
+                                <div class="friend_menu_text">
+                                    <span>Danh sách bạn bè</span>
+                                    <small id="friendCount">0 bạn</small>
+                                </div>
+                                <i class="fa-solid fa-angle-right"></i>
+                            </button>
+                            <button class="friend_menu_item" data-friend-page="groups">
+                                <div class="friend_menu_icon">
                                     <i class="fa-solid fa-users"></i>
                                 </div>
-                                <div class="friend_info">
-                                    <h3>Nhóm CHAT & WATCH</h3>
-                                    <p>5 thành viên</p>
+                                <div class="friend_menu_text">
+                                    <span>Nhóm của tôi</span>
+                                    <small id="groupCount">0 nhóm</small>
                                 </div>
-                                <div class="friend_item_actions">
-                                    <button>
-                                        <i class="fa-regular fa-comment"></i>
-                                    </button>
-                                    <button>
-                                        <i class="fa-solid fa-ellipsis"></i>
-                                    </button>
+                                <i class="fa-solid fa-angle-right"></i>
+                            </button>
+                            <button class="friend_menu_item" data-friend-page="requests">
+                                <div class="friend_menu_icon">
+                                    <i class="fa-solid fa-user-plus"></i>
+                                </div>
+                                <div class="friend_menu_text">
+                                    <span>Lời mời kết bạn</span>
+                                    <small id="requestCount">0 lời mời</small>
+                                </div>
+                                <span class="friend_request_badge">2</span>
+                            </button>
+                        </div>
+                    </aside>
+                    <section class="friend_content">
+                        <div class="friend_section" id="friendListPage">
+                            <div class="friend_content_header">
+                                <div>
+                                    <h1>Bạn bè của bạn</h1>
+                                    <p>Kết nối và trò chuyện với những người bạn đã thêm.</p>
+                                </div>
+                                <button class="friend_add_button" id="friendAddButton">
+                                    <i class="fa-solid fa-user-plus"></i>
+                                    <span>Thêm bạn</span>
+                                </button>
+                            </div>
+                            <div class="friend_search">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="friendSearch" placeholder="Tìm kiếm bạn bè...">
+                            </div>
+                            <div class="friend_list" id="friendList">
+                                <div class="friend_item">
+                                    <div class="friend_avatar">
+                                        <img src="./assests/img/default_avt.png" alt="">
+                                        <span class="online"></span>
+                                    </div>
+                                    <div class="friend_info">
+                                        <h3>Nguyễn Văn A</h3>
+                                    </div>
+                                    <div class="friend_item_actions">
+                                        <button title="Nhắn tin">
+                                            <i class="fa-regular fa-comment"></i>
+                                        </button>
+                                        <button title="Xem thông tin">
+                                            <i class="fa-solid fa-ellipsis"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="friend_item">
+                                    <div class="friend_avatar">
+                                        <img src="./assests/img/default_avt.png" alt="">
+                                    </div>
+                                    <div class="friend_info">
+                                        <h3>Trần Văn B</h3>
+                                    </div>
+                                    <div class="friend_item_actions">
+                                        <button title="Nhắn tin">
+                                            <i class="fa-regular fa-comment"></i>
+                                        </button>
+                                        <button title="Xem thông tin">
+                                            <i class="fa-solid fa-ellipsis"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="friend_section active" id="friendRequestPage">
-                        <div class="friend_content_header">
-                            <div>
-                                <h1>Lời mời kết bạn</h1>
-                                <p>Quản lý những lời mời kết bạn đang chờ xử lý.</p>
+                        <div class="friend_section " id="groupListPage">
+                            <div class="friend_content_header">
+                                <div>
+                                    <h1>Nhóm của tôi</h1>
+                                    <p>Những nhóm bạn đang tham gia.</p>
+                                </div>
+                                <button class="friend_add_button">
+                                    <i class="fa-solid fa-plus"></i>
+                                    <span>Tạo nhóm</span>
+                                </button>
                             </div>
-                        </div>
-                        <div class="friend_list">
-                            <div class="friend_item">
-                                <div class="friend_avatar">
-                                    <img src="./assests/img/default_avt.png" alt="">
-                                </div>
-                                <div class="friend_info">
-                                    <h3>Lê Minh C</h3>
-                                    <p>CW0004 · Muốn kết bạn với bạn</p>
-                                </div>
-                                <div class="request_actions">
-                                    <button class="request_accept">
-                                        <i class="fa-solid fa-check"></i>
-                                        Chấp nhận
-                                    </button>
-                                    <button class="request_reject">
-                                        <i class="fa-solid fa-xmark"></i>
-                                        Từ chối
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="friend_item">
-                                <div class="friend_avatar">
-                                    <img src="./assests/img/default_avt.png" alt="">
-                                </div>
-                                <div class="friend_info">
-                                    <h3>Phạm Văn D</h3>
-                                    <p>CW0005 · Muốn kết bạn với bạn</p>
-                                </div>
-                                <div class="request_actions">
-                                    <button class="request_accept">
-                                        <i class="fa-solid fa-check"></i>
-                                        Chấp nhận
-                                    </button>
-                                    <button class="request_reject">
-                                        <i class="fa-solid fa-xmark"></i>
-                                        Từ chối
-                                    </button>
+                            <div class="friend_list">
+                                <div class="friend_item group_item">
+                                    <div class="friend_avatar group_avatar">
+                                        <i class="fa-solid fa-users"></i>
+                                    </div>
+                                    <div class="friend_info">
+                                        <h3>Nhóm CHAT & WATCH</h3>
+                                        <p>5 thành viên</p>
+                                    </div>
+                                    <div class="friend_item_actions">
+                                        <button>
+                                            <i class="fa-regular fa-comment"></i>
+                                        </button>
+                                        <button>
+                                            <i class="fa-solid fa-ellipsis"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </section>
+                        <div class="friend_section active" id="friendRequestPage">
+                            <div class="friend_content_header">
+                                <div>
+                                    <h1>Lời mời kết bạn</h1>
+                                    <p>Quản lý những lời mời kết bạn đang chờ xử lý.</p>
+                                </div>
+                            </div>
+                            <div class="friend_list">
+                                <div class="friend_item">
+                                    <div class="friend_avatar">
+                                        <img src="./assests/img/default_avt.png" alt="">
+                                    </div>
+                                    <div class="friend_info">
+                                        <h3>Lê Minh C</h3>
+                                        <p>Muốn kết bạn với bạn</p>
+                                    </div>
+                                    <div class="request_actions">
+                                        <button class="request_accept">
+                                            <i class="fa-solid fa-check"></i>
+                                            Chấp nhận
+                                        </button>
+                                        <button class="request_reject">
+                                            <i class="fa-solid fa-xmark"></i>
+                                            Từ chối
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="friend_item">
+                                    <div class="friend_avatar">
+                                        <img src="./assests/img/default_avt.png" alt="">
+                                    </div>
+                                    <div class="friend_info">
+                                        <h3>Phạm Văn D</h3>
+                                        <p>Muốn kết bạn với bạn</p>
+                                    </div>
+                                    <div class="request_actions">
+                                        <button class="request_accept">
+                                            <i class="fa-solid fa-check"></i>
+                                            Chấp nhận
+                                        </button>
+                                        <button class="request_reject">
+                                            <i class="fa-solid fa-xmark"></i>
+                                            Từ chối
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </section>
+        </main>
+    </div>
+    <!-- logout  modal-->
+    <div class="modal_overlay" id="logoutModal">
+        <div class="modal_layout">
+            <div class="modal_header modal_logout">
+                <div>
+                    <h2>Xác nhận</h2>
+                </div>
+                <button class="modal_close" id="close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
-        </section>
-    </main>
+            <div class="separate"></div>
+            <div class="modal_logout-content">
+                <h4>Bạn có muốn đăng xuất khỏi web chứ ?</h4>
+                <div class="modal_acts">
+                    <button class="btn" id="cancelLogout">Nooo</button>
+                    <button class="btn btn-agree" id="agree">Yes sure</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- profile modal -->
+    <div class="modal_overlay" id="profileModal">
+        <div class="modal_layout">
+            <div class="modal_header">
+                <div>
+                    <h2>Thông tin cá nhân</h2>
+                </div>
+                <button class="modal_close" id="closeProfile">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="separate"></div>
+
+            <div class="profile_content">
+                <div class="profile_avatar">
+                    <img src="./assests/img/default_avt.png" alt="Avatar" id="profile_avt">
+                    <label for="avatar_input" class="change_avatar">
+                        <i class="fa-regular fa-pen-to-square"></i>
+                    </label>
+                </div>
+                <input type="file" id="avatar_input" accept="image/*" hidden>
+                <div class="profile_group">
+                    <label for="profile_name">
+                        Tên người dùng
+                    </label>
+                    <input type="text" id="profile_name" class="profile_input" autocomplete="off">
+                </div>
+                <div class="profile_acts">
+                    <button class="btn" id="cancelProfile">Nooo</button>
+                    <button class="btn btn-agree" id="saveProfile">
+                        Lưu thay đổi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- change password modal -->
+    <div class="modal_overlay" id="passwordModal">
+        <div class="modal_layout">
+            <div class="modal_header">
+                <div>
+                    <h2>Đổi mật khẩu</h2>
+                </div>
+                <button class="modal_close" id="closePassword">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="separate"></div>
+            <div class="modal_password-content">
+                <!-- Mật khẩu hiện tại -->
+                <div class="form_group">
+                    <label for="currentPassword">
+                        Mật khẩu hiện tại
+                    </label>
+                    <div class="form_input">
+                        <input 
+                            type="password" 
+                            id="currentPassword" 
+                            class="password"
+                            placeholder="Mật khẩu hiện tại" autocomplete="current-password">
+
+                        <div class="input_icon unhide_password">
+                            <i class="fa-solid fa-eye-slash hide_password"></i>
+                        </div>
+                        <div class="input_icon hide_password hide">
+                            <i class="fa-solid fa-eye"></i>
+                        </div>
+                    </div>
+                    <span class="error"></span>
+                </div>
+
+                <!-- Mật khẩu mới -->
+                <div class="form_group">
+                    <label for="newPassword">Mật khẩu mới </label>
+                    <div class="form_input">
+                        <input 
+                            type="password" 
+                            id="newPassword"
+                            class="password" 
+                            placeholder="Mật khẩu mới" >
+
+                        <div class="input_icon unhide_password">
+                            <i class="fa-solid fa-eye-slash hide_password"></i>
+                        </div>
+                        <div class="input_icon hide_password hide">
+                            <i class="fa-solid fa-eye"></i>
+                        </div>
+                    </div>
+
+                    <span class="error"></span>
+                </div>
+
+                <!-- Xác nhận mật khẩu -->
+                <div class="form_group">
+                    <label for="confirmPassword">
+                        Xác nhận mật khẩu mới
+                    </label>
+                    <div class="form_input">
+                        <input 
+                            type="password" 
+                            id="confirmPassword"
+                            class="password"
+                            placeholder="Nhập lại mật khẩu mới">
+
+                        <div class="input_icon unhide_password">
+                            <i class="fa-solid fa-eye-slash"></i>
+                        </div>
+                        <div class="input_icon hide_password hide">
+                            <i class="fa-solid fa-eye"></i>
+                        </div>
+                    </div>
+                    <span class="error"></span>
+                </div>
+                <div class="modal_acts">
+                    <button class="btn" id="cancelPassword">
+                        Hủy
+                    </button>
+
+                    <button class="btn btn-agree" id="savePassword">
+                        Đổi mật khẩu
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    <!-- Add Friend Modal -->
+    <div class="modal_overlay" id="afModal">
+        <div class="modal_layout">
+            <div class="modal_header">
+                <div>
+                    <h2>Thêm bạn</h2>
+                    <p>Tìm kiếm bạn bè bằng tên hoặc ID</p>
+                </div>
+                <button class="modal_close" id="closeAddFriend">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal_search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="friendUserSearch" placeholder="Nhập tên hoặc ID người dùng..."
+                    autocomplete="off">
+                <button id="searchFriendBtn">
+                    Tìm kiếm
+                </button>
+            </div>
+            <div class="modal_result" id="friendSearchResult">
+                <div class="modal_empty">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <p>Nhập tên hoặc ID để tìm kiếm bạn bè</p>
+                </div>
+
+            </div>
+        </div>
     </div>
     <script src="./frontend/js/chatApp_main.js"></script>
+    <script src="./frontend/js/unhidePass.js"></script>
+
 </body>
+
 </html>

@@ -33,7 +33,7 @@ body{
 .error{
     display: block;
     font-size: 14px;
-    margin: 10px 0 -15px 0;
+    margin: 0 0 -15px 0;
     color:#D32F2F;
 }
 
@@ -153,19 +153,21 @@ body{
 
 .form{
     margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    row-gap: 20px;
 }
 
 .form_group{
-    margin-bottom: 35px;
+    /* margin-bottom: 35px; */
 }
 
 .form_input{
     display: flex;
     align-items: center;
     gap: 15px;
-
-    margin-top: 25px;
     padding:10px;
+    margin-bottom: 10px;
     border: 1px solid #3e4a5d;
     border-radius: 10px;
 }

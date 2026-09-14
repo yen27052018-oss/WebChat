@@ -38,17 +38,6 @@ const login ={
     handleEvents: function(){
         // Hiện pass 
         const _this = this
-        eyeSlash.onclick = function(){
-            password.type = 'text'
-            eyeSlash.classList.add('hide')
-            eye.classList.remove('hide')
-        }
-        // Ẩn pass 
-        eye.onclick = function(){
-            password.type = 'password'
-            eye.classList.add('hide')
-            eyeSlash.classList.remove('hide')
-        }
 
         username.oninput = function(){
 
@@ -76,7 +65,7 @@ const login ={
 
         // đăng nhập
 
-        form.onsubmit = function(e){
+        form.onsubmit = async function(e){
 
             e.preventDefault()
 
@@ -118,17 +107,32 @@ const login ={
             errorUsername.textContent = ''
             errorPassword.textContent = ''
 
+            try{
+                const response = await fetch(
+                    'http://127.0.0.1:5000/api/login',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            username: usernameValue,
+                            password: passwordValue
+                        })
+                    }
+                )
 
-            // chạy thử
+                const result = await response.json()
 
-            const testUsername = 'yen'
-            const testPassword = '123456'
+                if(!result.success){
+                    usernameGroup.classList.add('error')
+                    passwordGroup.classList.add('error')
 
+                    errorUsername.textContent = result.message
+                    errorPassword.textContent = result.message
 
-            if(
-                usernameValue === testUsername &&
-                passwordValue === testPassword
-            ){
+                    return
+                }
 
                 _this.isLoggedIn = true
 
@@ -137,6 +141,10 @@ const login ={
                     true
                 )
 
+                _this.setConfig(
+                    'user',
+                    result.user
+                )
 
                 if(checkbox.checked){
 
@@ -155,21 +163,17 @@ const login ={
                     )
                 }
 
+                alert(
+                    `Đăng nhập thành công!\nXin chào ${result.user.username}`
+                )
 
-                alert('Đăng nhập thành công!')
+                window.location.href = './chatApp.html'
 
-                window.location.href = './chat.html' /*nếu đăng nhập thành công sẽ đưa vào trang để chat*/
+            }catch(error){
 
-            }else{
+                console.error(error)
 
-                usernameGroup.classList.add('error')
-                passwordGroup.classList.add('error')
-
-                errorUsername.textContent =
-                    'Tên người dùng hoặc mật khẩu không tồn tại'
-
-                errorPassword.textContent =
-                    'Tên người dùng hoặc mật khẩu không tồn tại'
+                alert('Không thể kết nối đến máy chủ')
             }
         }
     },

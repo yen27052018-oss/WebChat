@@ -1,15 +1,11 @@
 const $ = document.querySelector.bind(document)
 const $$ = document.querySelectorAll.bind(document)
 
-const REGISTER_STORAGE_KEY = 'CHAT_WATCH_REGISTER'
-
 const form = $('.form')
 
 const username = $('#username')
 const password = $('#password')
 const confirmPassword = $('#confirm-password')
-
-const checkbox = $('#checkbox')
 
 const usernameGroup = username.closest('.form_group')
 const passwordGroup = password.closest('.form_group')
@@ -19,68 +15,14 @@ const errorUsername = usernameGroup.querySelector('.error')
 const errorPassword = passwordGroup.querySelector('.error')
 const errorConfirmPassword = confirmPasswordGroup.querySelector('.error')
 
-const eyeSlash = $$('.fa-eye-slash')
-const eye = $$('.fa-eye')
+const eyeSlash = $$('.input_icon.unhide_password')
+const eye = $$('.input_icon.hide_password')
 
 
 // APP
 const app = {
 
-    config: JSON.parse(
-        localStorage.getItem(REGISTER_STORAGE_KEY)
-    ) || {},
-
-    setConfig: function(key, value){
-
-        this.config[key] = value
-
-        localStorage.setItem(
-            REGISTER_STORAGE_KEY,
-            JSON.stringify(this.config)
-        )
-    },
-
     handleEvents: function(){
-
-        const _this = this
-        // ẩn
-        eyeSlash[0].onclick = function(){
-
-            password.type = 'text'
-
-            eyeSlash[0].parentElement.classList.add('hide')
-            eye[0].parentElement.classList.remove('hide')
-        }
-
-        // hiện
-        eye[0].onclick = function(){
-
-            password.type = 'password'
-
-            eye[0].parentElement.classList.add('hide')
-            eyeSlash[0].parentElement.classList.remove('hide')
-        }
-
-
-        // ẩn confirm pass
-
-        eyeSlash[1].onclick = function(){
-
-            confirmPassword.type = 'text'
-
-            eyeSlash[1].parentElement.classList.add('hide')
-            eye[1].parentElement.classList.remove('hide')
-        }
-
-        // hiện confirm pass
-        eye[1].onclick = function(){
-
-            confirmPassword.type = 'password'
-
-            eye[1].parentElement.classList.add('hide')
-            eyeSlash[1].parentElement.classList.remove('hide')
-        }
-
         username.oninput = function(){
 
             if(username.value.trim() !== ''){
@@ -146,16 +88,14 @@ const app = {
         }
         //  thực hiện đăng ký
 
-        form.onsubmit = function(e){
+        form.onsubmit = async function(e){
 
             e.preventDefault()
 
-
             const usernameValue = username.value.trim()
             const passwordValue = password.value.trim()
-            const confirmPasswordValue =
-                confirmPassword.value.trim()
-
+            const confirmPasswordValue = confirmPassword.value.trim()
+            console.log(usernameValue, passwordValue, confirmPasswordValue)
 
             let isValid = true
 
@@ -205,9 +145,7 @@ const app = {
 
                 isValid = false
 
-            }else if(
-                confirmPasswordValue !== passwordValue
-            ){
+            }else if(confirmPasswordValue !== passwordValue){
 
                 confirmPasswordGroup.classList.add('error')
 
@@ -221,30 +159,51 @@ const app = {
                 return
             }
 
+            try{
 
-            _this.setConfig(
-                'username',
-                usernameValue
-            )
+                const response = await fetch(
+                    'http://127.0.0.1:5000/api/register',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            username: usernameValue,
+                            password: passwordValue
+                        })
+                    }
+                )
 
+                const result = await response.json()
 
-            alert('Đăng ký thành công!')
+                if(!result.success){
 
+                    usernameGroup.classList.add('error')
 
-            // Chuyển về trang Login
+                    errorUsername.textContent =
+                        result.message
 
-            window.location.href = '../login.html'
+                    return
+                }
+
+                alert(
+                    `Đăng ký thành công!\nMã người dùng: ${result.user_code}`
+                )
+
+                window.location.href = './login.html'
+
+            }catch(error){
+
+                console.error(error)
+
+                alert('Không thể kết nối đến máy chủ')
+            }
         }
     },
 
-    loadConfig: function(){
-
-    },
-
-
     start: function(){
 
-        this.loadConfig()
 
         this.handleEvents()
     }

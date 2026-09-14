@@ -87,6 +87,31 @@ body{
     font-size: 15px;
 }
 
+.btn{
+    margin: 0 10px;
+    border: none;
+
+    height: 45px;
+    min-width:88px;
+    background: #29313d;
+
+    font-size: 14px;
+    color:#fff;
+
+    cursor: pointer;
+}
+
+.btn-agree{
+    background: #4c6df5;
+}
+
+.btn:hover{
+    opacity: 0.7;
+}
+
+.hide{
+    display: none;
+}
 /* ===============================  */
 
 /* header  */
@@ -156,17 +181,19 @@ body{
     display: flex;
     align-items: center;
     column-gap: 10px;
+    max-width: 200px;
 
     padding:5px;
     border-radius: 1rem;
     border: 1px solid transparent;
 
     background: rgb(14, 38, 79, 0.4);
+
+    text-align: center;
 }
 
 .header_img{
-    background-size: cover;
-    background-repeat: no-repeat;
+    object-fit: cover;
     background-position: center;
 
     height: 30px;
@@ -178,10 +205,15 @@ body{
 
 .header_name{
     font-size: 12px;
+    line-height: 3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .header_icon{
     font-size: 12px;
+    margin-left: auto;
 }
 
 /* drop_down */
@@ -194,7 +226,7 @@ body{
     position: absolute;
     top: 55px;
     right: 0;
-    width: 100%;
+    min-width: 172px;
     padding: 0px 15px;
     border-radius: 1rem;
     background: rgb(14, 38, 79);
@@ -1677,6 +1709,13 @@ body{
     text-overflow: ellipsis;
 }
 
+.friend_info p{
+    color: #f4f6fa;
+
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 24px;
+}
 /* ==================================================
                 FRIEND ITEM ACTIONS
 ================================================== */

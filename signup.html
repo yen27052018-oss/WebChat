@@ -28,7 +28,7 @@
             <div class="login_intro">
                 <img src="/assests/img/logo.png" alt="" class="login_logo">
                 <h1 class="login_title">Chat & <span>Watch</span></h1>
-                <p class="login_desc">Chat và xem phim</h1>
+                <p class="login_desc">Chat và xem phim</p>
                 <div class="login_list">
                     <div class="login_item">
                         <div class="login_icon">
@@ -70,7 +70,7 @@
                                 </div>
                                 <input 
                                     type="text" 
-                                    name="" 
+                                    name="username" 
                                     id="username" 
                                     class="username"
                                     placeholder="Nhập tên người dùng">
@@ -85,7 +85,7 @@
                                 </div>
                                 <input 
                                     type="password" 
-                                    name="" 
+                                    name="password" 
                                     id="password" 
                                     class="password"
                                     placeholder="Nhập mật khẩu">
@@ -96,16 +96,18 @@
                                     <i class="fa-solid fa-eye"></i>
                                 </div>
                             </div>
-                            <div class="form_group">
+                            <span class="error"></span>
+                        </div>
+                        <div class="form_group">
                             <div class="form_input">
                                 <div class="input_icon">
                                     <i class="fa-solid fa-lock"></i>
                                 </div>
                                 <input 
                                     type="password" 
-                                    name="" 
+                                    name="confirm-password" 
                                     id="confirm-password" 
-                                    class="confirm-password"
+                                    class="password"
                                     placeholder="Nhập lại mật khẩu">
                                 <div class="input_icon unhide_password">
                                     <i class="fa-solid fa-eye-slash hide_password"></i>
@@ -116,7 +118,6 @@
                             </div>
                             <span class="error"></span>
                         </div>
-                                
                         <div class="form_act">
                             <button type="submit" class="signin_act">
                                 Đăng ký
@@ -134,5 +135,6 @@
         </div>
     </div>
     <script src="./frontend/js/signup_main.js"></script>
+    <script src="./frontend/js/unhidePass.js"></script>
 </body>
 </html>
