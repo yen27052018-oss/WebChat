@@ -1,4 +1,4 @@
-
+const $$ = document.querySelectorAll.bind(document)
 
 const inputForm = $$('.form_input')
 const passwords = $$('.password')

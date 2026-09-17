@@ -17,6 +17,7 @@
     <!-- <link rel="stylesheet" href="../assests/grid.css"> -->
     <link rel="stylesheet" href="./frontend/css/chatApp_style.css">
     <link rel="stylesheet" href="./frontend/css/modals.css">
+    <link rel="stylesheet" href="./frontend/css/error.css">
 
     <!-- font  -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -41,6 +42,62 @@
             <div class="header_right">
                 <div class="header_notification-icon" id="notification_btn">
                     <i class="fa-regular fa-bell"></i>
+                    <!-- Drop down notifi item  -->
+                    <div class="notification_menu">
+                        <div class="notif_header">
+                            <h3>Thông báo của bạn</h4>
+                        </div>
+                        <div class="notifcation_list">
+                            <div class="notif_item">
+                                <img src="./assests/img/default_avt.png" alt="" id="otherImg">
+                                <h4 class="username">A Tuánasdadasdadasad</h4>
+                                <div class="notif_act">
+                                    <button type="submit" class="btn btn-agree btn-notif">Đồng ý</button>
+                                    <button type="submit" class="btn btn-notif">Từ chối</button>
+                                </div>
+                            </div>
+                            <div class="notif_item">
+                                <img src="./assests/img/default_avt.png" alt="" id="otherImg">
+                                <h4 class="username">A Tuánasdadasdadasad</h4>
+                                <div class="notif_act">
+                                    <button type="submit" class="btn btn-agree btn-notif">Đồng ý</button>
+                                    <button type="submit" class="btn btn-notif">Từ chối</button>
+                                </div>
+                            </div>
+                            <div class="notif_item">
+                                <img src="./assests/img/default_avt.png" alt="" id="otherImg">
+                                <h4 class="username">A Tuánasdadasdadasad</h4>
+                                <div class="notif_act">
+                                    <button type="submit" class="btn btn-agree btn-notif">Đồng ý</button>
+                                    <button type="submit" class="btn btn-notif">Từ chối</button>
+                                </div>
+                            </div>
+                            <div class="notif_item">
+                                <img src="./assests/img/default_avt.png" alt="" id="otherImg">
+                                <h4 class="username">A Tuánasdadasdadasad</h4>
+                                <div class="notif_act">
+                                    <button type="submit" class="btn btn-agree btn-notif">Đồng ý</button>
+                                    <button type="submit" class="btn btn-notif">Từ chối</button>
+                                </div>
+                            </div>
+                            <div class="notif_item">
+                                <img src="./assests/img/default_avt.png" alt="" id="otherImg">
+                                <h4 class="username">A Tuánasdadasdadasad</h4>
+                                <div class="notif_act">
+                                    <button type="submit" class="btn btn-agree btn-notif">Đồng ý</button>
+                                    <button type="submit" class="btn btn-notif">Từ chối</button>
+                                </div>
+                            </div>
+                            <div class="notif_item">
+                                <img src="./assests/img/default_avt.png" alt="" id="otherImg">
+                                <h4 class="username">A Tuánasdadasdadasad</h4>
+                                <div class="notif_act">
+                                    <button type="submit" class="btn btn-agree btn-notif">Đồng ý</button>
+                                    <button type="submit" class="btn btn-notif">Từ chối</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="header_setting-icon" id="setting_btn">
                     <i class="fa-solid fa-gear"></i>
@@ -589,76 +646,60 @@
                 </button>
             </div>
             <div class="separate"></div>
+
             <div class="modal_password-content">
-                <!-- Mật khẩu hiện tại -->
+
+                <span class="error" id="passwordError"></span>
+
                 <div class="form_group">
-                    <label for="currentPassword">
-                        Mật khẩu hiện tại
-                    </label>
+                    <label for="currentPassword">Mật khẩu hiện tại</label>
                     <div class="form_input">
-                        <input 
-                            type="password" 
-                            id="currentPassword" 
-                            class="password"
-                            placeholder="Mật khẩu hiện tại" autocomplete="current-password">
+                        <input type="password" id="currentPassword" class="password" placeholder="Mật khẩu hiện tại"
+                            autocomplete="current-password">
 
                         <div class="input_icon unhide_password">
                             <i class="fa-solid fa-eye-slash hide_password"></i>
                         </div>
+
                         <div class="input_icon hide_password hide">
                             <i class="fa-solid fa-eye"></i>
                         </div>
                     </div>
-                    <span class="error"></span>
                 </div>
 
-                <!-- Mật khẩu mới -->
                 <div class="form_group">
-                    <label for="newPassword">Mật khẩu mới </label>
+                    <label for="newPassword">Mật khẩu mới</label>
                     <div class="form_input">
-                        <input 
-                            type="password" 
-                            id="newPassword"
-                            class="password" 
-                            placeholder="Mật khẩu mới" >
+                        <input type="password" id="newPassword" class="password" placeholder="Mật khẩu mới">
 
                         <div class="input_icon unhide_password">
                             <i class="fa-solid fa-eye-slash hide_password"></i>
                         </div>
+
                         <div class="input_icon hide_password hide">
                             <i class="fa-solid fa-eye"></i>
                         </div>
                     </div>
-
-                    <span class="error"></span>
                 </div>
 
-                <!-- Xác nhận mật khẩu -->
                 <div class="form_group">
-                    <label for="confirmPassword">
-                        Xác nhận mật khẩu mới
-                    </label>
+                    <label for="confirmPassword">Xác nhận mật khẩu mới</label>
                     <div class="form_input">
-                        <input 
-                            type="password" 
-                            id="confirmPassword"
-                            class="password"
+                        <input type="password" id="confirmPassword" class="password"
                             placeholder="Nhập lại mật khẩu mới">
 
                         <div class="input_icon unhide_password">
                             <i class="fa-solid fa-eye-slash"></i>
                         </div>
+
                         <div class="input_icon hide_password hide">
                             <i class="fa-solid fa-eye"></i>
                         </div>
                     </div>
-                    <span class="error"></span>
                 </div>
-                <div class="modal_acts">
-                    <button class="btn" id="cancelPassword">
-                        Hủy
-                    </button>
 
+                <div class="modal_acts">
+                    <button class="btn" id="cancelPassword">Hủy</button>
                     <button class="btn btn-agree" id="savePassword">
                         Đổi mật khẩu
                     </button>
@@ -668,8 +709,8 @@
         </div>
     </div>
     <!-- Add Friend Modal -->
-    <div class="modal_overlay" id="afModal">
-        <div class="modal_layout">
+    <div class="modal_overlay" id="addfrModal">
+        <div class="modal_layout user_list">
             <div class="modal_header">
                 <div>
                     <h2>Thêm bạn</h2>
@@ -679,23 +720,33 @@
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
+            <div class="separate"></div>
             <div class="modal_search">
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" id="friendUserSearch" placeholder="Nhập tên hoặc ID người dùng..."
                     autocomplete="off">
-                <button id="searchFriendBtn">
+                <button class="btn btn_search" id="searchFriendBtn">
                     Tìm kiếm
                 </button>
             </div>
             <div class="modal_result" id="friendSearchResult">
-                <div class="modal_empty">
+                <!-- <div class="modal_empty hide">
                     <i class="fa-solid fa-user-plus"></i>
                     <p>Nhập tên hoặc ID để tìm kiếm bạn bè</p>
                 </div>
 
+                <div class="modal_item">
+                    <img src="./assests/img/default_avt.png" alt="" id="otherImg">
+                    <div class="modal_container">
+                        <h4 class="modal_name">A Tuấn</h4>
+                        <p class="modal_id">CW0005</p>
+                    </div>
+                    <button type="submit" class="btn btn_addfriend">Kết bạn</button>
+                </div> -->
             </div>
         </div>
     </div>
+    <script src="./frontend/js/error.js"></script>
     <script src="./frontend/js/chatApp_main.js"></script>
     <script src="./frontend/js/unhidePass.js"></script>
 

@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="./assests/reset.css">
     <!-- <link rel="stylesheet" href="../assests/grid.css"> -->
     <link rel="stylesheet" href="/frontend/css/signup_style.css">
+    <link rel="stylesheet" href="./frontend/css/error.css">
 
     <!-- font  -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -63,6 +64,7 @@
                     <h2 class="login_header">Xin chào bạn mới</h2>
                     <p class="login_desc">Hãy đăng ký để chat chít với ní</p>
                     <form class="form">
+                        <span class="error" id="signupError"></span>
                         <div class="form_group">
                             <div class="form_input">
                                 <div class="input_icon">
@@ -75,7 +77,6 @@
                                     class="username"
                                     placeholder="Nhập tên người dùng">
                             </div>
-                            <span class="error"></span>
                         </div>
                         
                         <div class="form_group">
@@ -96,7 +97,6 @@
                                     <i class="fa-solid fa-eye"></i>
                                 </div>
                             </div>
-                            <span class="error"></span>
                         </div>
                         <div class="form_group">
                             <div class="form_input">
@@ -116,7 +116,6 @@
                                     <i class="fa-solid fa-eye"></i>
                                 </div>
                             </div>
-                            <span class="error"></span>
                         </div>
                         <div class="form_act">
                             <button type="submit" class="signin_act">
@@ -134,6 +133,7 @@
             </div>
         </div>
     </div>
+    <script src="./frontend/js/error.js"></script>
     <script src="./frontend/js/signup_main.js"></script>
     <script src="./frontend/js/unhidePass.js"></script>
 </body>

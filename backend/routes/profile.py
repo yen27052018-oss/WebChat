@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from backend.database import get_db
 from werkzeug.utils import secure_filename
+from werkzeug.security import check_password_hash, generate_password_hash
 import os
 import uuid
 
@@ -162,4 +163,124 @@ def update_avatar():
         'success': True,
         'message': 'Cập nhật avatar thành công',
         'avatar': avatar_url
+    }), 200
+
+@profile_bp.route('/api/change-password', methods=['POST'])
+def change_password():
+    data = request.get_json() or {}
+
+    userid = data.get('userid', '').strip()
+    current_password = data.get('current_password', '')
+    new_password = data.get('new_password', '')
+
+    if (
+        userid == '' or
+        current_password == '' or
+        new_password == ''
+    ):
+        return jsonify({
+            'success': False,
+            'message': 'Vui lòng nhập đầy đủ'
+        }), 400
+
+    if len(new_password) < 6:
+        return jsonify({
+            'success': False,
+            'message': 'Mật khẩu phải có ít nhất 6 ký tự'
+        }), 400
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute(
+        '''
+        SELECT id, password
+        FROM users
+        WHERE userid = %s
+        ''',
+        (userid,)
+    )
+
+    user = cursor.fetchone()
+
+    if not user:
+        cursor.close()
+        db.close()
+
+        return jsonify({
+            'success': False,
+            'message': 'Không tìm thấy người dùng'
+        }), 404
+
+    if not check_password_hash(
+        user['password'],
+        current_password
+    ):
+        cursor.close()
+        db.close()
+
+        return jsonify({
+            'success': False,
+            'message': 'Mật khẩu hiện tại không đúng'
+        }), 401
+
+    password_hash = generate_password_hash(new_password)
+
+    cursor.execute(
+        '''
+        UPDATE users
+        SET password = %s
+        WHERE userid = %s
+        ''',
+        (
+            password_hash,
+            userid
+        )
+    )
+
+    db.commit()
+
+    cursor.close()
+    db.close()
+
+    return jsonify({
+        'success': True,
+        'message': 'Đổi mật khẩu thành công'
+    }), 200
+    
+@profile_bp.route('/api/search-user', methods=['GET'])
+def search_user():
+    keyword = request.args.get('keyword', '').strip()
+    userid = request.args.get('userid', '').strip()
+    if keyword == '':
+        return jsonify({
+            'success': False,
+            'message': 'Vui lòng nhập tên hoặc ID'
+        }), 400
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute(
+        '''
+        SELECT userid, username, avatar
+        FROM users
+        WHERE (
+            BINARY username LIKE BINARY %s
+            OR BINARY userid LIKE BINARY %s
+        )
+        AND userid != %s
+        ''',
+        (
+            f'%{keyword}%',
+            f'%{keyword}%',
+            userid
+        )
+    )
+    users = cursor.fetchall()
+
+    cursor.close()
+    db.close()
+
+    return jsonify({
+        'success': True,
+        'users': users
     }), 200
