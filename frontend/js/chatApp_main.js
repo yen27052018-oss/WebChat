@@ -47,6 +47,10 @@ const friendUserSearch = $('#friendUserSearch')
 const searchFriendBtn = $('#searchFriendBtn')
 const friendSearchResult = $('#friendSearchResult')
 
+const notificationIcon = $('#notification_btn')
+const notificationMenu = $('.notification_menu')
+const notificationClose = $('#closeNotif')
+
 const chatApp = {
     config: JSON.parse(localStorage.getItem(LOGIN_STORAGE_KEY)) || {},
 
@@ -119,6 +123,16 @@ const chatApp = {
 
 
     handleEvent: function () {
+        // ==================== TURN ON/OFF NOTIFICATION =======
+        notificationIcon.onclick = (e) => {
+            e.stopPropagation();
+            notificationMenu.classList.add('open')
+        }
+
+        notificationClose.onclick = (e) => {
+             e.stopPropagation();
+            notificationMenu.classList.remove('open')
+        }
 
         // ==================== PROFILE ====================
 
