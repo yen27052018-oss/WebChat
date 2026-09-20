@@ -6,6 +6,8 @@ from flask_cors import CORS
 from backend.routes.register import register_bp
 from backend.routes.login import login_bp
 from backend.routes.profile import profile_bp
+from backend.routes.friend import friend_bp
+from backend.routes.message import message_bp
 
 app = Flask(__name__)
 
@@ -14,6 +16,8 @@ CORS(app)
 app.register_blueprint(register_bp)
 app.register_blueprint(login_bp)
 app.register_blueprint(profile_bp)
+app.register_blueprint(friend_bp)
+app.register_blueprint(message_bp)
 
 
 @app.route('/')

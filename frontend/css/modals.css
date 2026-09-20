@@ -29,7 +29,7 @@
     border: 1px solid rgba(255, 255, 255, .07);
     border-radius: 16px;
 
-    background: #1c222c;
+    background: var(--white-color);
 
     box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
 
@@ -60,7 +60,7 @@
 .modal_header h2 {
     margin: 0 0 12px;
 
-    color: #ffffff;
+    color: var(--primary-color);
 
     font-size: 20px;
     font-weight: 600;
@@ -69,7 +69,7 @@
 .modal_header p {
     margin: 0;
 
-    color: #71809a;
+    color: var(--primary-color);
 
     font-size: 13px;
 }
@@ -90,9 +90,14 @@
 }
 
 .modal_close:hover {
-    color: #ffffff;
+    color: var(--primary-color);
 
-    background: #2a313c;
+}
+
+.modal_separate{
+    width: 100% !important;
+    height: 1px !important;
+    margin: 15px 0;
 }
 
 .modal_search {
@@ -106,7 +111,7 @@
     border: 1px solid rgba(255, 255, 255, .06);
     border-radius: 10px;
 
-    background: #242a34;
+    background: var(--input-color);
 }
 
 .modal_search > i {
@@ -127,12 +132,12 @@
     border: none;
     outline: none;
 
-    color: #ffffff;
+    color: var(--black-color);
 
     background: transparent;
 
     font-family: inherit;
-    font-size: 12px;
+    font-size: 14px;
 }
 
 .modal_search input::placeholder {
@@ -283,13 +288,6 @@
 /* ======================= */
 /* log out  */
 
-.separate{
-    height: 1px;
-    width: 100%;
-    background-color: #29313d;
-    margin:18px 0;
-}
-
 .modal_logout{
     align-items: center;
 }
@@ -305,6 +303,7 @@
 
 .modal_logout-content h4{
     line-height: 3;
+    color:var(--primary-color);
 }
 
 .modal_acts{
@@ -338,11 +337,13 @@
     right:8px;
     bottom:-28px;
 
-    display: block;
-    width: fit-content;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 25px;
+    height: 25px;
 
     margin: 0 auto 24px;
-    padding:6px;
     border-radius: 50%;
     font-size: 14px;
     background: #4c6df5;
@@ -357,18 +358,20 @@
     display: block;
     margin-bottom: 8px;
     font-size: 14px;
+    font-weight: 600;
+    color:var(--black-color);
 }
 
 .profile_input{
     width: 100%;
     padding: 10px 12px;
-    border: 1px solid #29313d;
     border-radius: 8px;
+    border: none;
     outline: none;
     font-family: inherit;
     font-size: 14px;
-    background: #252b33;
-    color: #fff;
+    background: var(--input-color);
+    color: var(--black-color);
 }
 
 .profile_input:focus{
@@ -399,9 +402,8 @@
     display: flex;
     align-items: center;
     padding:10px;
-    margin-top: 10px;
     border-radius: 9px;
-    background: #252b33;
+    background: var(--input-color);
 }
 
 .form_input input{
@@ -409,12 +411,26 @@
     background: transparent;
     outline: none;
     border: none;
-    color:#fff;
+    color:var(--black-color);
 }
 
-.form_input input::placeholder{
-    /* color:#fff; */
+.input_icon{
+    color:var(--desc-color);
 }
+
+.profile_id_value{
+    display: flex;
+    justify-content: space-between;
+}
+
+.copy_userid{
+    background: transparent;
+    border: none;
+    outline: none;
+    color:var(--primary-color);
+    cursor: pointer;
+}
+
 /* =============================  */
 
 .user_list{
@@ -446,7 +462,8 @@
 .modal_item{
     display: flex;
     align-items: center;
-    margin: 15px 0;
+    padding:10px;
+    margin: 10px 0;
     overflow: hidden;
 }
 
@@ -457,12 +474,17 @@
     object-fit: cover;
 }
 
+.modal_item:hover{
+    background: var(--hover-color);
+}
+
 .modal_container{
     margin: 0 auto 0 10px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap:5px;
+    color:var(--black-color);
 }
 
 .btn_addfriend{
@@ -471,6 +493,6 @@
 }
 
 .btn_addfriend:hover{
-    background: #467cfc;
-    color:#fff;
+    background: var(--primary-color);
+    opacity:1;
 }

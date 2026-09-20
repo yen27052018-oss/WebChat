@@ -252,35 +252,120 @@ def change_password():
 def search_user():
     keyword = request.args.get('keyword', '').strip()
     userid = request.args.get('userid', '').strip()
+
     if keyword == '':
         return jsonify({
             'success': False,
             'message': 'Vui lòng nhập tên hoặc ID'
         }), 400
+
     db = get_db()
     cursor = db.cursor(dictionary=True)
-    cursor.execute(
-        '''
-        SELECT userid, username, avatar
-        FROM users
-        WHERE (
-            BINARY username LIKE BINARY %s
-            OR BINARY userid LIKE BINARY %s
-        )
-        AND userid != %s
-        ''',
-        (
-            f'%{keyword}%',
-            f'%{keyword}%',
-            userid
-        )
-    )
-    users = cursor.fetchall()
 
-    cursor.close()
-    db.close()
+    try:
+        # Lấy ID thật của người đang tìm kiếm
+        cursor.execute(
+            '''
+            SELECT id
+            FROM users
+            WHERE userid = %s
+            ''',
+            (userid,)
+        )
 
-    return jsonify({
-        'success': True,
-        'users': users
-    }), 200
+        current_user = cursor.fetchone()
+
+        if not current_user:
+            return jsonify({
+                'success': False,
+                'message': 'Không tìm thấy người dùng hiện tại'
+            }), 404
+
+        current_user_id = current_user['id']
+
+        # Tìm người dùng
+        cursor.execute(
+            '''
+            SELECT
+                u.id,
+                u.userid,
+                u.username,
+                u.avatar,
+
+                fr.status AS friend_status,
+                fr.sender_id,
+                fr.receiver_id
+
+            FROM users u
+
+            LEFT JOIN friend_requests fr
+                ON (
+                    (
+                        fr.sender_id = %s
+                        AND fr.receiver_id = u.id
+                    )
+                    OR
+                    (
+                        fr.sender_id = u.id
+                        AND fr.receiver_id = %s
+                    )
+                )
+
+            WHERE (
+                BINARY u.username LIKE BINARY %s
+                OR BINARY u.userid LIKE BINARY %s
+            )
+            AND u.id != %s
+
+            ORDER BY u.username
+            ''',
+            (
+                current_user_id,
+                current_user_id,
+                f'%{keyword}%',
+                f'%{keyword}%',
+                current_user_id
+            )
+        )
+
+        users = cursor.fetchall()
+
+        for user in users:
+
+            if user['friend_status'] == 'accepted':
+
+                user['friend_status'] = 'accepted'
+
+            elif user['friend_status'] == 'pending':
+
+                if user['sender_id'] == current_user_id:
+                    user['friend_status'] = 'sent'
+                else:
+                    user['friend_status'] = 'received'
+
+            else:
+
+                user['friend_status'] = 'none'
+
+            user.pop('id', None)
+            user.pop('sender_id', None)
+            user.pop('receiver_id', None)
+
+        return jsonify({
+            'success': True,
+            'users': users
+        }), 200
+
+    except Exception as error:
+
+        print(error)
+
+        return jsonify({
+            'success': False,
+            'message': 'Không thể tìm kiếm người dùng'
+        }), 500
+
+    finally:
+
+        cursor.close()
+        db.close()

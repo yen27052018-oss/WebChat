@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="./frontend/css/chatApp_style.css">
     <link rel="stylesheet" href="./frontend/css/modals.css">
     <link rel="stylesheet" href="./frontend/css/error.css">
+    <link rel="stylesheet" href="./frontend/css/color.css">
 
     <!-- font  -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,7 +37,7 @@
             <a href="#!" class="logo_link">
                 <div class="header_logo">
                     <img src="./assests/img/logo.png" alt="" class="logo_img">
-                    <h1 class="logo_heading">Chat & <span>Watch</span></h1>
+                    <h1 class="logo_heading">Chat & Watch</h1>
                 </div>
             </a>
             <div class="header_right">
@@ -45,20 +46,12 @@
                     <!-- Drop down notifi item  -->
                     <div class="notification_menu">
                         <div class="notif_header">
-                            <h3>Thông báo của bạn</h4>
+                            <h3>Thông báo của bạn</h3>
                             <div class="notif_close" id="closeNotif">
                                 <i class="fa-solid fa-xmark"></i>
                             </div>
                         </div>
-                        <div class="notifcation_list">
-                            <div class="notif_item">
-                                <img src="./assests/img/default_avt.png" alt="" id="otherImg">
-                                <h4 class="username">A Tuánasdadasdadasad</h4>
-                                <div class="notif_act">
-                                    <button type="submit" class="btn btn-agree btn-notif">Đồng ý</button>
-                                    <button type="submit" class="btn btn-notif">Từ chối</button>
-                                </div>
-                            </div>
+                        <div class="notifcation_list" id="notificationList">
                         </div>
                     </div>
                 </div>
@@ -104,7 +97,7 @@
 
                 <div class="sidebar_top">
                     <!-- Tin nhắn -->
-                    <div class="sidebar_item active" data-page="message">
+                    <div class="sidebar_item sidebar_active" data-page="message">
                         <div class="sidebar_icon">
                             <i class="fa-regular fa-message"></i>
                             <span class="sidebar_badge" id="unreadBadge">
@@ -183,7 +176,7 @@
 
                         <!-- Filter -->
                         <div class="conversation_filter">
-                            <button class="filter_item active" data-filter="all">
+                            <button class="filter_item filter_active" data-filter="all">
                                 Tất cả
                             </button>
                             <button class="filter_item" data-filter="unread">
@@ -196,78 +189,7 @@
 
                         <!-- Danh sách được JS render -->
                         <div class="conversation_list" id="conversationList">
-                            <!-- item  -->
-
-                            <div class="conversation_item active">
-                                <div class="conversation_avatar">
-                                    <img src="./assests/img/default_avt.png" alt="">
-                                    <span class="online"></span>
-                                </div>
-
-                                <div class="conversation_content">
-                                    <div class="conversation_top">
-                                        <h3>
-                                            Nguyễn Văn A
-                                        </h3>
-                                        <span class="conversation_time">
-                                            14:25
-                                        </span>
-                                    </div>
-
-                                    <div class="conversation_bottom">
-                                        <p class="conversation_message">
-
-                                            <span class="message_sender">
-                                                Nguyễn Văn A:
-                                            </span>
-
-                                            <span class="message_preview">
-                                                Bạn đang làm gì vậy?
-                                            </span>
-
-                                        </p>
-                                        <span class="unread">
-                                            2
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="conversation_item">
-                                <div class="conversation_avatar">
-                                    <img src="./assests/img/default_avt.png" alt="">
-                                    <span class="online"></span>
-                                </div>
-
-                                <div class="conversation_content">
-                                    <div class="conversation_top">
-                                        <h3>
-                                            Nguyễn Văn A
-                                        </h3>
-                                        <span class="conversation_time">
-                                            14:25
-                                        </span>
-                                    </div>
-
-                                    <div class="conversation_bottom">
-                                        <p class="conversation_message">
-
-                                            <span class="message_sender">
-                                                Nguyễn Văn A:
-                                            </span>
-
-                                            <span class="message_preview">
-                                                Bạn đang làm gì ?
-                                            </span>
-
-                                        </p>
-                                        <span class="unread">
-                                            2
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
+                            
                         </div>
                     </section>
 
@@ -399,7 +321,8 @@
                                     <span>Lời mời kết bạn</span>
                                     <small id="requestCount">0 lời mời</small>
                                 </div>
-                                <span class="friend_request_badge">2</span>
+                                <i class="fa-solid fa-angle-right"></i>
+                                <!-- <span class="friend_request_badge">2</span> -->
                             </button>
                         </div>
                     </aside>
@@ -410,7 +333,7 @@
                                     <h1>Bạn bè của bạn</h1>
                                     <p>Kết nối và trò chuyện với những người bạn đã thêm.</p>
                                 </div>
-                                <button class="friend_add_button" id="friendAddButton">
+                                <button class="friend_add_button" id="addFriendBtn">
                                     <i class="fa-solid fa-user-plus"></i>
                                     <span>Thêm bạn</span>
                                 </button>
@@ -429,10 +352,10 @@
                                         <h3>Nguyễn Văn A</h3>
                                     </div>
                                     <div class="friend_item_actions">
-                                        <button title="Nhắn tin">
+                                        <button class="btn friend_item-act" title="Nhắn tin">
                                             <i class="fa-regular fa-comment"></i>
                                         </button>
-                                        <button title="Xem thông tin">
+                                        <button class="btn friend_item-act" title="Xem thông tin">
                                             <i class="fa-solid fa-ellipsis"></i>
                                         </button>
                                     </div>
@@ -440,22 +363,23 @@
                                 <div class="friend_item">
                                     <div class="friend_avatar">
                                         <img src="./assests/img/default_avt.png" alt="">
+                                        <span class="online"></span>
                                     </div>
                                     <div class="friend_info">
-                                        <h3>Trần Văn B</h3>
+                                        <h3>Nguyễn Văn A</h3>
                                     </div>
                                     <div class="friend_item_actions">
-                                        <button title="Nhắn tin">
+                                        <button class="btn friend_item-act" title="Nhắn tin">
                                             <i class="fa-regular fa-comment"></i>
                                         </button>
-                                        <button title="Xem thông tin">
+                                        <button class="btn friend_item-act" title="Xem thông tin">
                                             <i class="fa-solid fa-ellipsis"></i>
                                         </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="friend_section " id="groupListPage">
+                        <div class="friend_section active" id="groupListPage">
                             <div class="friend_content_header">
                                 <div>
                                     <h1>Nhóm của tôi</h1>
@@ -486,7 +410,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="friend_section active" id="friendRequestPage">
+                        <div class="friend_section" id="friendRequestPage">
                             <div class="friend_content_header">
                                 <div>
                                     <h1>Lời mời kết bạn</h1>
@@ -572,7 +496,7 @@
                 </button>
             </div>
 
-            <div class="separate"></div>
+            <div class="separate modal_separate"></div>
 
             <div class="profile_content">
                 <div class="profile_avatar">
@@ -587,6 +511,17 @@
                         Tên người dùng
                     </label>
                     <input type="text" id="profile_name" class="profile_input" autocomplete="off">
+                </div>
+                <div class="profile_group">
+                    <label for="profile_name">
+                        ID người dùng
+                    </label>
+                    <div class="profile_input profile_id_value ">
+                        <span id="profileUserId">ádasdasd</span>
+                        <button type="button" id="copyUserId" class="copy_userid">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="profile_acts">
                     <button class="btn" id="cancelProfile">Nooo</button>
@@ -683,7 +618,7 @@
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-            <div class="separate"></div>
+            <div class="separate modal_separate"></div>
             <div class="modal_search">
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" id="friendUserSearch" placeholder="Nhập tên hoặc ID người dùng..."
@@ -710,6 +645,7 @@
         </div>
     </div>
     <script src="./frontend/js/error.js"></script>
+    <script src="./frontend/js/avt_render.js"></script>
     <script src="./frontend/js/chatApp_main.js"></script>
     <script src="./frontend/js/unhidePass.js"></script>
 

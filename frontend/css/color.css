@@ -1,0 +1,24 @@
+:root{
+    --logo-font:"Montserrat", sans-serif;
+
+    --white-color:#fff;
+    --black-color:#000;
+    --error-color:#D32F2F;
+    --separate-color:#adbbd1;
+    --desc-color:#5f6c80;
+    --input-color:#f1f2f4;
+    --hover-color:#f1f2f4;
+
+    --primary-color:#346fc2;
+    --primary-rgb:rgb(52, 111, 194194, 0.6);
+    --white-rgb:rgb(255, 255, 255, 0.4);
+    --dropdown-layout:rgb(14, 38, 79);
+
+    --shadown-layout:rgba(0, 0, 0, 0.19) 0px 10px 20px, rgba(0, 0, 0, 0.23) 0px 6px 6px;
+}
+
+.separate{
+    width: 1px;
+    height: 100%;
+    background-color: var(--separate-color);
+}

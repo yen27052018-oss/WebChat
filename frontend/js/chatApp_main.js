@@ -1,11 +1,12 @@
 const $ = document.querySelector.bind(document)
-// const $$ = document.querySelectorAll.bind(document)
 
 const LOGIN_STORAGE_KEY = 'CHAT_WATCH_LOGIN'
 
 const userName = $('#user_name')
 const userAvt = $('#user_avt')
 const profileName = $('#profile_name')
+const profileUserId = $('#profileUserId')
+const copyUserId = $('#copyUserId')
 
 const logoutBtn = $('#logout')
 const profileBtn = $('#profile')
@@ -39,7 +40,7 @@ const passwordInputs = [
     newPassword,
     confirmPassword
 ]
-const addFriendBtn = $('#addFriendBtn')
+const addFriendBtns = document.querySelectorAll('#addFriendBtn')
 const addfrModal = $('#addfrModal')
 const closeAddFriend = $('#closeAddFriend')
 
@@ -50,8 +51,23 @@ const friendSearchResult = $('#friendSearchResult')
 const notificationIcon = $('#notification_btn')
 const notificationMenu = $('.notification_menu')
 const notificationClose = $('#closeNotif')
+const notificationList = $('.notifcation_list')
+
+const conversationList = $('.conversation_list')
+const chatEmpty = $('#chatEmpty')
+const chatRoom = $('#chatRoom')
+const chatAvatar = $('#chatAvatar')
+const chatUserName = $('#chatUserName')
+const chatUserStatus = $('#chatUserStatus')
+const chatBody = $('#chatBody')
+const messageInput = $('#messageInput')
+const sendMessageBtn = $('#sendMessageBtn')
 
 const chatApp = {
+    avatarFile: null,
+    hasNotification: false,
+    currentConversation: null,
+    conversations: [],
     config: JSON.parse(localStorage.getItem(LOGIN_STORAGE_KEY)) || {},
 
     setConfig: function (key, value) {
@@ -90,6 +106,7 @@ const chatApp = {
 
     openProfile: function () {
         profileName.value = this.config.user.username
+        profileUserId.textContent = this.config.user.userid
 
         if (
             !this.config.user.avatar ||
@@ -121,17 +138,421 @@ const chatApp = {
         window.location.href = './login.html'
     },
 
+    loadMessages: async function (conversationId) {
+        try {
+            const userId = this.config.user.id
+            const response = await fetch(
+                `http://127.0.0.1:5000/api/messages?conversation_id=${conversationId}&user_id=${userId}`
+            )
+            const result = await response.json()
+            if (!result.success) {
+                console.error(result.message)
+                return
+            }
+            if (result.messages.length === 0) {
+                chatBody.innerHTML = ''
+                return
+            }
+
+            chatBody.innerHTML =
+                result.messages.map((message, index) => {
+
+                    const isMine =
+                        String(message.sender_id) ===
+                        String(userId)
+
+                    const isLastMessage =
+                        index === result.messages.length - 1
+
+                    const showStatus =
+                        isMine && isLastMessage
+
+                    const previousMessage =
+                        result.messages[index - 1]
+
+                    const isSameSender =
+                        previousMessage &&
+                        String(previousMessage.sender_id) ===
+                        String(message.sender_id)
+
+                    const messageClass =
+                        isMine
+                            ? 'message sent'
+                            : isSameSender
+                                ? 'message received message_group'
+                                : 'message received'
+
+                    const avatar =
+                        !message.sender_avatar ||
+                            message.sender_avatar === 'default_avt.png'
+                            ? './assests/img/default_avt.png'
+                            : `http://127.0.0.1:5000${message.sender_avatar}`
+
+                    // Trạng thái tin nhắn
+                    const messageStatus =
+                        message.status  === 'seen'
+                            ? 'Đã xem'
+                            : message.status  === 'delivered'
+                                ? 'Đã nhận'
+                                : 'Đã gửi'
+
+                    return `
+                    <div class="${messageClass}">
+
+                        ${!isMine && !isSameSender
+                            ? `
+                                    <img
+                                        class="message_avatar"
+                                        src="${avatar}"
+                                        alt=""
+                                    >
+                                `
+                            : ''
+                        }
+
+                        <div class="message_content">
+
+                            <p>
+                                ${message.content}
+                            </p>
+
+                        </div>
+
+                        ${showStatus
+                            ? `
+                                    <span class="message_status">
+                                        ${messageStatus}
+                                    </span>
+                                `
+                            : ''
+                        }
+
+                    </div>
+                `
+                }).join('')
+
+            chatBody.scrollTop =
+                chatBody.scrollHeight
+
+        } catch (error) {
+
+            console.error(
+                'Lỗi loadMessages:',
+                error
+            )
+
+        }
+    },
+
+    markMessagesSeen: async function (conversationId) {
+
+        try {
+
+            const response = await fetch(
+                'http://127.0.0.1:5000/api/messages/seen',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        conversation_id: conversationId,
+                        user_id: this.config.user.id
+                    })
+                }
+            )
+
+            const result = await response.json()
+
+            if (!result.success) {
+                console.error(result.message)
+            }
+
+        } catch (error) {
+
+            console.error(
+                'Lỗi markMessagesSeen:',
+                error
+            )
+
+        }
+    },
+
+
+
+    openConversation: function (conversation) {
+
+        this.currentConversation = conversation
+
+        chatEmpty.style.display = 'none'
+        chatRoom.style.display = 'flex'
+
+        chatUserName.textContent =
+            conversation.user.username
+
+        if (
+            !conversation.user.avatar ||
+            conversation.user.avatar === 'default_avt.png'
+        ) {
+            chatAvatar.src =
+                './assests/img/default_avt.png'
+        } else {
+            chatAvatar.src =
+                `http://127.0.0.1:5000${conversation.user.avatar}`
+        }
+
+        chatUserStatus.textContent =
+            'Đang hoạt động'
+
+        this.markMessagesSeen(
+            conversation.conversation_id
+        )
+        this.loadMessages(
+            conversation.conversation_id
+        )
+    },
+
+    updateNotificationBadge: function (hasNotification) {
+
+        this.hasNotification = hasNotification
+
+        if (hasNotification) {
+            notificationIcon.classList.add(
+                'has_notification'
+            )
+        } else {
+            notificationIcon.classList.remove(
+                'has_notification'
+            )
+        }
+    },
+    loadFriendRequests: async function () {
+
+        try {
+
+            const response = await fetch(
+                `http://127.0.0.1:5000/api/friend-requests?userid=${this.config.user.userid}`
+            )
+
+            const result = await response.json()
+
+            if (!result.success) {
+                return
+            }
+
+            // Có lời mời kết bạn hay không
+            this.updateNotificationBadge(
+                result.requests.length > 0
+            )
+
+            // Hiển thị danh sách lời mời
+            notificationList.innerHTML =
+                result.requests.map(request => {
+
+                    const avatar =
+                        !request.avatar ||
+                            request.avatar === 'default_avt.png'
+                            ? './assests/img/default_avt.png'
+                            : `http://127.0.0.1:5000${request.avatar}`
+
+                    return `
+                    <div
+                        class="notif_item"
+                        data-request-id="${request.id}"
+                    >
+
+                        <img
+                            src="${avatar}"
+                            alt=""
+                        >
+
+                        <h4 class="username">
+                            ${request.username}
+                        </h4>
+
+                        <div class="notif_act">
+
+                            <button
+                                type="button"
+                                class="btn btn-agree btn-notif"
+                                data-action="accept"
+                                data-request-id="${request.id}"
+                            >
+                                Đồng ý
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn btn-notif"
+                                data-action="reject"
+                                data-request-id="${request.id}"
+                            >
+                                Từ chối
+                            </button>
+
+                        </div>
+
+                    </div>
+                `
+                }).join('')
+
+        } catch (error) {
+
+            console.error(error)
+
+        }
+    },
+    loadConversations: async function () {
+        try {
+            const userId = this.config.user.id
+            const response = await fetch(
+                `http://127.0.0.1:5000/api/conversations?user_id=${userId}`
+            )
+            const result = await response.json()
+
+            console.log('conversations:', result)
+
+            // const result = await response.json()
+            // if (!result.success) {
+            //     return
+            // }
+            this.conversations = result.conversations
+            if (result.conversations.length === 0) {
+
+                conversationList.innerHTML = ''
+
+                return
+            }
+            conversationList.innerHTML =
+                result.conversations.map(conversation => {
+                    const user = conversation.user
+                    const avatar =
+                        !user.avatar ||
+                            user.avatar === 'default_avt.png'
+                            ? './assests/img/default_avt.png'
+                            : `http://127.0.0.1:5000${user.avatar}`
+
+                    let messagePreview = 'Chưa có tin nhắn'
+
+                    if (conversation.last_message) {
+
+                        const isMine =
+                            String(conversation.last_message.sender_id) ===
+                            String(this.config.user.id)
+
+                        messagePreview =
+                            isMine
+                                ? `Bạn: ${conversation.last_message.content}`
+                                : conversation.last_message.content
+                    }
+                    return `
+                    <div
+                        class="conversation_item"
+                        data-conversation-id="${conversation.conversation_id}"
+                    >
+                        <div class="conversation_avatar">
+                            <img
+                                src="${avatar}"
+                                alt=""
+                            >
+                            <span class="online"></span>
+                        </div>
+                        <div class="conversation_content">
+                            <div class="conversation_top">
+                                <h3>
+                                    ${user.username}
+                                </h3>
+                                <span class="conversation_time">
+                                </span>
+                            </div>
+                            <div class="conversation_bottom">
+                                <p class="conversation_message">
+                                    ${messagePreview}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `
+                }).join('')
+
+
+
+        } catch (error) {
+
+            console.error(error)
+
+        }
+    },
 
     handleEvent: function () {
         // ==================== TURN ON/OFF NOTIFICATION =======
         notificationIcon.onclick = (e) => {
             e.stopPropagation();
             notificationMenu.classList.add('open')
+            this.loadFriendRequests()
         }
 
         notificationClose.onclick = (e) => {
-             e.stopPropagation();
+            e.stopPropagation();
             notificationMenu.classList.remove('open')
+        }
+
+        notificationList.onclick = async (e) => {
+
+            const button =
+                e.target.closest('.btn-notif')
+
+            if (!button) {
+                return
+            }
+
+            const action =
+                button.dataset.action
+
+            const requestId =
+                button.dataset.requestId
+
+            if (action !== 'accept') {
+                return
+            }
+
+            try {
+
+                const response = await fetch(
+                    'http://127.0.0.1:5000/api/accept-friend-request',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            request_id: requestId
+                        })
+                    }
+                )
+
+                const result =
+                    await response.json()
+
+                if (!result.success) {
+                    alert(result.message)
+                    return
+                }
+
+                // Cập nhật lại danh sách thông báo
+                this.loadFriendRequests()
+
+                // Hiện người bạn vừa kết bạn trong Conversation
+                this.loadConversations()
+
+            } catch (error) {
+
+                console.error(error)
+
+                alert(
+                    'Không thể kết nối đến máy chủ'
+                )
+            }
         }
 
         // ==================== PROFILE ====================
@@ -148,9 +569,36 @@ const chatApp = {
             this.closeProfile()
         }
 
-        profileModal.onclick = (e) => {
-            if (e.target === profileModal) {
-                this.closeProfile()
+        profileModal.onmousedown = (e) => {
+
+            if (e.target !== profileModal) {
+                return
+            }
+
+            profileModal.classList.remove('active')
+        }
+
+        copyUserId.onclick = async () => {
+
+            try {
+
+                await navigator.clipboard.writeText(
+                    this.config.user.userid
+                )
+
+                copyUserId.innerHTML =
+                    '<i class="fa-solid fa-check"></i>'
+
+                setTimeout(() => {
+                    copyUserId.innerHTML =
+                        '<i class="fa-regular fa-copy"></i>'
+                }, 1500)
+
+            } catch (error) {
+
+                console.error(error)
+
+                alert('Không thể sao chép ID')
             }
         }
 
@@ -269,11 +717,29 @@ const chatApp = {
 
         // ==================== AVATAR ====================
 
-        avatarInput.onchange = (e) => {
+        avatarInput.onchange = async (e) => {
+
             const file = e.target.files[0]
 
-            if (file) {
-                profileAvt.src = URL.createObjectURL(file)
+            if (!file) {
+                return
+            }
+
+            try {
+
+                const processedFile =
+                    await avatarTool.process(file)
+
+                this.avatarFile = processedFile
+
+                profileAvt.src =
+                    URL.createObjectURL(processedFile)
+
+            } catch (error) {
+
+                console.error(error)
+                alert('Không thể xử lý ảnh')
+
             }
         }
 
@@ -282,7 +748,7 @@ const chatApp = {
         saveProfile.onclick = async () => {
             const newUsername = profileName.value.trim()
             const oldUsername = this.config.user.username
-            const avatarFile = avatarInput.files[0]
+            const avatarFile = this.avatarFile
 
             if (newUsername === '') {
                 alert('Tên người dùng không được để trống')
@@ -357,10 +823,11 @@ const chatApp = {
                     this.config.user.avatar = result.avatar
 
                     userAvt.src =
-                        `http://127.0.0.1:5000${result.avatar}`
+                        `http://127.0.0.1:5000${result.avatar}?t=${Date.now()}`
 
                     profileAvt.src =
-                        `http://127.0.0.1:5000${result.avatar}`
+                        `http://127.0.0.1:5000${result.avatar}?t=${Date.now()}`
+                    this.avatarFile = null
                 }
 
                 this.setConfig(
@@ -384,9 +851,15 @@ const chatApp = {
             addfrModal.classList.remove('active')
         }
 
-        addFriendBtn.onclick = () => {
-            addfrModal.classList.add('active')
-        }
+        // addFriendBtn.onclick = () => {
+        //     addfrModal.classList.add('active')
+        // }
+
+        addFriendBtns.forEach((addFriendBtn, index) => {
+            addFriendBtn.onclick = () => {
+                addfrModal.classList.add('active')
+            }
+        })
 
         addfrModal.onclick = (e) => {
             if (e.target === addfrModal) {
@@ -425,22 +898,122 @@ const chatApp = {
                         !user.avatar || user.avatar === 'default_avt.png'
                             ? './assests/img/default_avt.png'
                             : `http://127.0.0.1:5000${user.avatar}`
+                    let friendButton = ''
+                    if (user.friend_status === 'accepted') {
+
+                        friendButton = `
+                                            <button
+                                                type="button"
+                                                class="btn btn_addfriend"
+                                                disabled>
+                                                Đã kết bạn
+                                            </button>
+                                        `
+
+                    } else if (user.friend_status === 'sent') {
+
+                        friendButton = `
+                                            <button
+                                                type="button"
+                                                class="btn btn_addfriend"
+                                                disabled>
+                                                Đã gửi
+                                            </button>
+                                        `
+
+                    } else if (user.friend_status === 'received') {
+
+                        friendButton = `
+                                            <button
+                                                type="button"
+                                                class="btn btn_addfriend"
+                                                disabled>
+                                                Chờ bạn xác nhận
+                                            </button>
+                                        `
+
+                    } else {
+
+                        friendButton = `
+                                            <button
+                                                type="button"
+                                                class="btn btn_addfriend"
+                                                data-userid="${user.userid}">
+                                                Kết bạn
+                                            </button>
+                                        `
+                    }
 
                     return `
-                            <div class="modal_item">
-                                <img src="${avatar}" alt="">
+                                <div class="modal_item">
+                                    <img src="${avatar}" alt="">
 
-                                <div class="modal_container">
-                                    <h4 class="modal_name">${user.username}</h4>
-                                    <p class="modal_id">${user.userid}</p>
+                                    <div class="modal_container">
+                                        <h4 class="modal_name">
+                                            ${user.username}
+                                        </h4>
+
+                                        <p class="modal_id">
+                                            ${user.userid}
+                                        </p>
+                                    </div>
+
+                                    ${friendButton}
                                 </div>
-
-                                <button type="button" class="btn btn_addfriend">
-                                    Kết bạn
-                                </button>
-                            </div>
-                        `
+                            `
                 }).join('')
+                const addButtons =
+                    friendSearchResult.querySelectorAll(
+                        '.btn_addfriend'
+                    )
+
+                addButtons.forEach((button) => {
+
+                    button.onclick = async () => {
+
+                        const receiverUserid =
+                            button.dataset.userid
+
+                        try {
+
+                            const response = await fetch(
+                                'http://127.0.0.1:5000/api/send-friend-request',
+                                {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        sender_userid:
+                                            this.config.user.userid,
+
+                                        receiver_userid:
+                                            receiverUserid
+                                    })
+                                }
+                            )
+
+                            const result =
+                                await response.json()
+
+                            if (!result.success) {
+                                alert(result.message)
+                                return
+                            }
+
+                            button.textContent = 'Đã gửi'
+                            button.disabled = true
+
+                        } catch (error) {
+
+                            console.error(error)
+
+                            alert(
+                                'Không thể kết nối đến máy chủ'
+                            )
+                        }
+                    }
+                })
             } catch (error) {
                 console.error(error)
                 friendSearchResult.innerHTML = `
@@ -448,6 +1021,114 @@ const chatApp = {
                     <p>Không thể kết nối đến máy chủ</p>
                 </div>`
             }
+        }
+
+        // CONVERSATION
+        conversationList.onclick = (e) => {
+
+            const conversationItem =
+                e.target.closest('.conversation_item')
+
+            if (!conversationItem) {
+                return
+            }
+
+            const conversationId =
+                conversationItem.dataset.conversationId
+
+            const conversation =
+                this.conversations.find(
+                    conversation =>
+                        String(conversation.conversation_id) ===
+                        String(conversationId)
+                )
+
+            if (!conversation) {
+                return
+            }
+
+            document
+                .querySelectorAll('.conversation_item')
+                .forEach(item => {
+                    item.classList.remove('active')
+                })
+
+            conversationItem.classList.add('active')
+
+            this.openConversation(conversation)
+        }
+
+        // ==================== SEND MESSAGE ====================
+
+        sendMessageBtn.onclick = async () => {
+
+            const content =
+                messageInput.value.trim()
+
+            if (content === '') {
+                return
+            }
+
+            if (!this.currentConversation) {
+                return
+            }
+
+            try {
+
+                const response = await fetch(
+                    'http://127.0.0.1:5000/api/messages',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            conversation_id:
+                                this.currentConversation.conversation_id,
+
+                            sender_id:
+                                this.config.user.id,
+
+                            content: content
+                        })
+                    }
+                )
+
+                const result =
+                    await response.json()
+
+                if (!result.success) {
+
+                    alert(result.message)
+
+                    return
+                }
+
+                messageInput.value = ''
+
+                this.loadMessages(
+                    this.currentConversation.conversation_id
+                )
+
+            } catch (error) {
+
+                console.error(error)
+
+                alert(
+                    'Không thể kết nối đến máy chủ'
+                )
+            }
+        }
+
+        messageInput.onkeydown = (e) => {
+
+            if (e.key !== 'Enter') {
+                return
+            }
+
+            e.preventDefault()
+
+            sendMessageBtn.click()
         }
     },
 
@@ -458,6 +1139,14 @@ const chatApp = {
 
         this.loadUser()
         this.handleEvent()
+        // Kiểm tra lời mời ngay khi mở trang
+        this.loadFriendRequests()
+        this.loadConversations()
+        setInterval(() => {
+
+            this.loadFriendRequests()
+
+        }, 5000)
     }
 }
 
