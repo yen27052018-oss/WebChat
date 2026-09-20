@@ -1,6 +1,15 @@
 const $ = document.querySelector.bind(document)
 
 const LOGIN_STORAGE_KEY = 'CHAT_WATCH_LOGIN'
+const API_URL =
+    window.CHAT_WATCH_API_URL ||
+    (
+        window.location.port === '5000'
+            ? window.location.origin
+            : `${window.location.protocol}//${window.location.hostname}:5000`
+    )
+
+const SOCKET_URL = API_URL
 
 const userName = $('#user_name')
 const userAvt = $('#user_avt')
@@ -64,6 +73,7 @@ const messageInput = $('#messageInput')
 const sendMessageBtn = $('#sendMessageBtn')
 
 const chatApp = {
+
     avatarFile: null,
     hasNotification: false,
     currentConversation: null,
@@ -99,7 +109,7 @@ const chatApp = {
                 userAvt.src = './assests/img/default_avt.png'
             } else {
                 userAvt.src =
-                    `http://127.0.0.1:5000${this.config.user.avatar}`
+                    `${API_URL}${this.config.user.avatar}`
             }
         }
     },
@@ -115,7 +125,7 @@ const chatApp = {
             profileAvt.src = './assests/img/default_avt.png'
         } else {
             profileAvt.src =
-                `http://127.0.0.1:5000${this.config.user.avatar}`
+                `${API_URL}${this.config.user.avatar}`
         }
 
         profileModal.classList.add('active')
@@ -142,7 +152,7 @@ const chatApp = {
         try {
             const userId = this.config.user.id
             const response = await fetch(
-                `http://127.0.0.1:5000/api/messages?conversation_id=${conversationId}&user_id=${userId}`
+                `${API_URL}/api/messages?conversation_id=${conversationId}&user_id=${userId}`
             )
             const result = await response.json()
             if (!result.success) {
@@ -186,13 +196,13 @@ const chatApp = {
                         !message.sender_avatar ||
                             message.sender_avatar === 'default_avt.png'
                             ? './assests/img/default_avt.png'
-                            : `http://127.0.0.1:5000${message.sender_avatar}`
+                            : `${API_URL}${message.sender_avatar}`
 
                     // Trạng thái tin nhắn
                     const messageStatus =
-                        message.status  === 'seen'
+                        message.status === 'seen'
                             ? 'Đã xem'
-                            : message.status  === 'delivered'
+                            : message.status === 'delivered'
                                 ? 'Đã nhận'
                                 : 'Đã gửi'
 
@@ -249,7 +259,7 @@ const chatApp = {
         try {
 
             const response = await fetch(
-                'http://127.0.0.1:5000/api/messages/seen',
+                `${API_URL}/api/messages/seen`,
                 {
                     method: 'POST',
                     headers: {
@@ -298,7 +308,7 @@ const chatApp = {
                 './assests/img/default_avt.png'
         } else {
             chatAvatar.src =
-                `http://127.0.0.1:5000${conversation.user.avatar}`
+                `${API_URL}${conversation.user.avatar}`
         }
 
         chatUserStatus.textContent =
@@ -331,7 +341,7 @@ const chatApp = {
         try {
 
             const response = await fetch(
-                `http://127.0.0.1:5000/api/friend-requests?userid=${this.config.user.userid}`
+                `${API_URL}/api/friend-requests?userid=${this.config.user.userid}`
             )
 
             const result = await response.json()
@@ -353,7 +363,7 @@ const chatApp = {
                         !request.avatar ||
                             request.avatar === 'default_avt.png'
                             ? './assests/img/default_avt.png'
-                            : `http://127.0.0.1:5000${request.avatar}`
+                            : `${API_URL}${request.avatar}`
 
                     return `
                     <div
@@ -406,7 +416,7 @@ const chatApp = {
         try {
             const userId = this.config.user.id
             const response = await fetch(
-                `http://127.0.0.1:5000/api/conversations?user_id=${userId}`
+                `${API_URL}/api/conversations?user_id=${userId}`
             )
             const result = await response.json()
 
@@ -430,7 +440,7 @@ const chatApp = {
                         !user.avatar ||
                             user.avatar === 'default_avt.png'
                             ? './assests/img/default_avt.png'
-                            : `http://127.0.0.1:5000${user.avatar}`
+                            : `${API_URL}${user.avatar}`
 
                     let messagePreview = 'Chưa có tin nhắn'
 
@@ -519,7 +529,7 @@ const chatApp = {
             try {
 
                 const response = await fetch(
-                    'http://127.0.0.1:5000/api/accept-friend-request',
+                    `${API_URL}/api/accept-friend-request`,
                     {
                         method: 'POST',
                         headers: {
@@ -650,7 +660,7 @@ const chatApp = {
             try {
 
                 const response = await fetch(
-                    'http://127.0.0.1:5000/api/change-password',
+                    `${API_URL}/api/change-password`,
                     {
                         method: 'POST',
                         headers: {
@@ -767,7 +777,7 @@ const chatApp = {
                 // Cập nhật username
                 if (usernameChanged) {
                     const response = await fetch(
-                        'http://127.0.0.1:5000/api/update-profile',
+                        `${API_URL}/api/update-profile`,
                         {
                             method: 'POST',
                             headers: {
@@ -806,7 +816,7 @@ const chatApp = {
                     )
 
                     const response = await fetch(
-                        'http://127.0.0.1:5000/api/update-avatar',
+                        `${API_URL}/api/update-avatar`,
                         {
                             method: 'POST',
                             body: formData
@@ -823,10 +833,10 @@ const chatApp = {
                     this.config.user.avatar = result.avatar
 
                     userAvt.src =
-                        `http://127.0.0.1:5000${result.avatar}?t=${Date.now()}`
+                        `${API_URL}${result.avatar}?t=${Date.now()}`
 
                     profileAvt.src =
-                        `http://127.0.0.1:5000${result.avatar}?t=${Date.now()}`
+                        `${API_URL}${result.avatar}?t=${Date.now()}`
                     this.avatarFile = null
                 }
 
@@ -876,7 +886,7 @@ const chatApp = {
             }
             try {
                 const response = await fetch(
-                    `http://127.0.0.1:5000/api/search-user?keyword=${encodeURIComponent(keyword)}&userid=${this.config.user.userid}`
+                    `${API_URL}/api/search-user?keyword=${encodeURIComponent(keyword)}&userid=${this.config.user.userid}`
                 )
                 const result = await response.json()
                 if (!result.success) {
@@ -897,7 +907,7 @@ const chatApp = {
                     const avatar =
                         !user.avatar || user.avatar === 'default_avt.png'
                             ? './assests/img/default_avt.png'
-                            : `http://127.0.0.1:5000${user.avatar}`
+                            : `${API_URL}${user.avatar}`
                     let friendButton = ''
                     if (user.friend_status === 'accepted') {
 
@@ -977,7 +987,7 @@ const chatApp = {
                         try {
 
                             const response = await fetch(
-                                'http://127.0.0.1:5000/api/send-friend-request',
+                                `${API_URL}/api/send-friend-request`,
                                 {
                                     method: 'POST',
                                     headers: {
@@ -1076,7 +1086,7 @@ const chatApp = {
             try {
 
                 const response = await fetch(
-                    'http://127.0.0.1:5000/api/messages',
+                    `${API_URL}/api/messages`,
                     {
                         method: 'POST',
                         headers: {
@@ -1133,6 +1143,17 @@ const chatApp = {
     },
 
     start: function () {
+        const socket = io(SOCKET_URL)
+
+        socket.on('connect', () => {
+            console.log('Đã kết nối Socket.IO:', socket.id)
+        })
+
+        socket.on('disconnect', () => {
+            console.log('Đã ngắt kết nối Socket.IO')
+        })
+
+
         if (!this.checkLogin()) {
             return
         }

@@ -2,6 +2,7 @@ import os
 
 from flask import Flask, send_from_directory
 from flask_cors import CORS
+from flask_socketio import SocketIO
 
 from backend.routes.register import register_bp
 from backend.routes.login import login_bp
@@ -12,6 +13,20 @@ from backend.routes.message import message_bp
 app = Flask(__name__)
 
 CORS(app)
+
+socketio = SocketIO(
+    app,
+    cors_allowed_origins='*'
+)
+
+@socketio.on('connect')
+def handle_connect():
+    print('Có client vừa kết nối Socket.IO')
+
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client đã ngắt kết nối Socket.IO')
 
 app.register_blueprint(register_bp)
 app.register_blueprint(login_bp)
@@ -39,7 +54,8 @@ def uploaded_file(filename):
 
 
 if __name__ == '__main__':
-    app.run(
+    socketio.run(
+        app,
         host='0.0.0.0',
         port=5000,
         debug=True
