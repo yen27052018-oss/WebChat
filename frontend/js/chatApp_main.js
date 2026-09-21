@@ -77,6 +77,7 @@ const chatApp = {
     avatarFile: null,
     hasNotification: false,
     currentConversation: null,
+    socket: null,
     conversations: [],
     config: JSON.parse(localStorage.getItem(LOGIN_STORAGE_KEY)) || {},
 
@@ -254,41 +255,32 @@ const chatApp = {
         }
     },
 
-    markMessagesSeen: async function (conversationId) {
+    markMessagesSeen: function (conversationId) {
 
-        try {
-
-            const response = await fetch(
-                `${API_URL}/api/messages/seen`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        conversation_id: conversationId,
-                        user_id: this.config.user.id
-                    })
-                }
-            )
-
-            const result = await response.json()
-
-            if (!result.success) {
-                console.error(result.message)
-            }
-
-        } catch (error) {
-
-            console.error(
-                'Lỗi markMessagesSeen:',
-                error
-            )
-
+        if (!this.socket) {
+            return
         }
+        this.socket.emit('message_seen', {
+            conversation_id: conversationId,
+            user_id: this.config.user.id
+        })
     },
 
+    joinConversation: function (conversationId) {
 
+        if (!this.socket) {
+            return
+        }
+
+        this.socket.emit('join_conversation', {
+
+            conversation_id: conversationId,
+
+            user_id: this.config.user.id
+
+        })
+
+    },
 
     openConversation: function (conversation) {
 
@@ -314,6 +306,9 @@ const chatApp = {
         chatUserStatus.textContent =
             'Đang hoạt động'
 
+        this.joinConversation(
+            conversation.conversation_id
+        )
         this.markMessagesSeen(
             conversation.conversation_id
         )
@@ -1083,51 +1078,19 @@ const chatApp = {
                 return
             }
 
-            try {
+            this.socket.emit('send_message', {
 
-                const response = await fetch(
-                    `${API_URL}/api/messages`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            conversation_id:
-                                this.currentConversation.conversation_id,
+                conversation_id:
+                    this.currentConversation.conversation_id,
 
-                            sender_id:
-                                this.config.user.id,
+                sender_id:
+                    this.config.user.id,
 
-                            content: content
-                        })
-                    }
-                )
+                content: content
 
-                const result =
-                    await response.json()
+            })
 
-                if (!result.success) {
-
-                    alert(result.message)
-
-                    return
-                }
-
-                messageInput.value = ''
-
-                this.loadMessages(
-                    this.currentConversation.conversation_id
-                )
-
-            } catch (error) {
-
-                console.error(error)
-
-                alert(
-                    'Không thể kết nối đến máy chủ'
-                )
-            }
+            messageInput.value = ''
         }
 
         messageInput.onkeydown = (e) => {
@@ -1143,30 +1106,107 @@ const chatApp = {
     },
 
     start: function () {
-        const socket = io(SOCKET_URL)
 
-        socket.on('connect', () => {
-            console.log('Đã kết nối Socket.IO:', socket.id)
+        this.loadUser()
+        this.socket = io(SOCKET_URL)
+
+        this.socket.on('connect', () => {
+            console.log('Đã kết nối Socket.IO:', this.socket.id)
+
+            this.socket.emit('user_online', {
+                user_id: this.config.user.id
+            })
         })
 
-        socket.on('disconnect', () => {
+        this.socket.on('disconnect', () => {
             console.log('Đã ngắt kết nối Socket.IO')
         })
 
+        this.socket.on('new_message', (message) => {
+
+            console.log(
+                'Nhận tin nhắn realtime:',
+                message
+            )
+
+            const isCurrentConversation =
+                this.currentConversation &&
+                String(
+                    this.currentConversation.conversation_id
+                ) ===
+                String(message.conversation_id)
+
+            // Tin nhắn của người khác
+            if (
+                String(message.sender_id) !==
+                String(this.config.user.id)
+            ) {
+
+                // Đang mở đúng conversation
+                if (isCurrentConversation) {
+
+                    this.socket.emit(
+                        'message_seen',
+                        {
+                            conversation_id:
+                                message.conversation_id,
+
+                            user_id:
+                                this.config.user.id
+                        }
+                    )
+
+                }
+
+            }
+
+            // Chỉ load lại nếu đang ở conversation đó
+            if (isCurrentConversation) {
+
+                this.loadMessages(
+                    this.currentConversation.conversation_id
+                )
+
+            }
+
+        })
+
+        this.socket.on('message_status', (data) => {
+
+            console.log(
+                'Status tin nhắn:',
+                data
+            )
+
+            if (!this.currentConversation) {
+                return
+            }
+
+            if (
+                String(data.conversation_id) !==
+                String(
+                    this.currentConversation.conversation_id
+                )
+            ) {
+                return
+            }
+
+            this.loadMessages(
+                this.currentConversation.conversation_id
+            )
+
+        })
 
         if (!this.checkLogin()) {
             return
         }
 
-        this.loadUser()
         this.handleEvent()
         // Kiểm tra lời mời ngay khi mở trang
         this.loadFriendRequests()
         this.loadConversations()
         setInterval(() => {
-
             this.loadFriendRequests()
-
         }, 5000)
     }
 }
