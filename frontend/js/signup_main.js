@@ -1,5 +1,13 @@
 const $ = document.querySelector.bind(document)
 
+const API_URL =
+    window.CHAT_WATCH_API_URL ||
+    (
+        window.location.port === '5000'
+            ? window.location.origin
+            : `${window.location.protocol}//${window.location.hostname}:5000`
+    )
+
 const form = $('.form')
 
 const username = $('#username')
@@ -45,7 +53,7 @@ const app = {
             try {
 
                 const response = await fetch(
-                    'http://127.0.0.1:5000/api/register',
+                    `${API_URL}/api/register`,
                     {
                         method: 'POST',
                         headers: {

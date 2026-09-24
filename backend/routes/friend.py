@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from backend.database import get_db
+from backend.extensions import socketio
 
 friend_bp = Blueprint('friend', __name__)
 
@@ -320,6 +321,14 @@ def accept_friend_request():
 
         db.commit()
 
+        socketio.emit(
+            'friend_accepted',
+            {
+             'user_id': sender_id
+            },
+            to=f'user_{sender_id}'
+        )
+        
         return jsonify({
             'success': True,
             'message': 'Đã chấp nhận lời mời kết bạn',

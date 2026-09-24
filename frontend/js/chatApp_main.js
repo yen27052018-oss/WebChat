@@ -282,6 +282,17 @@ const chatApp = {
 
     },
 
+    checkUserOnline: function (userId) {
+
+        if (!this.socket) {
+            return
+        }
+
+        this.socket.emit('check_user_online', {
+            user_id: userId
+        })
+    },
+
     openConversation: function (conversation) {
 
         this.currentConversation = conversation
@@ -304,11 +315,16 @@ const chatApp = {
         }
 
         chatUserStatus.textContent =
-            'Đang hoạt động'
+            'Đang kiểm tra...'
 
         this.joinConversation(
             conversation.conversation_id
         )
+
+        this.checkUserOnline(
+            conversation.user.id
+        )
+
         this.markMessagesSeen(
             conversation.conversation_id
         )
@@ -460,11 +476,10 @@ const chatApp = {
                                 src="${avatar}"
                                 alt=""
                             >
-                            <span class="online"></span>
                         </div>
                         <div class="conversation_content">
                             <div class="conversation_top">
-                                <h3>
+                                <h3 class="conversation_name">
                                     ${user.username}
                                 </h3>
                                 <span class="conversation_time">
@@ -487,6 +502,40 @@ const chatApp = {
             console.error(error)
 
         }
+    },
+
+    updateConversationPreview: function (message) {
+
+        const conversationItem =
+            conversationList.querySelector(
+                `[data-conversation-id="${message.conversation_id}"]`
+            )
+
+        if (!conversationItem) {
+            return
+        }
+
+        const messagePreview =
+            conversationItem.querySelector(
+                '.conversation_message'
+            )
+
+        if (!messagePreview) {
+            return
+        }
+
+        const isMine =
+            String(message.sender_id) ===
+            String(this.config.user.id)
+
+        messagePreview.textContent =
+            isMine
+                ? `Bạn: ${message.content}`
+                : message.content
+
+        conversationList.prepend(
+            conversationItem
+        )
     },
 
     handleEvent: function () {
@@ -1122,6 +1171,166 @@ const chatApp = {
             console.log('Đã ngắt kết nối Socket.IO')
         })
 
+        this.socket.on('profile_updated', (data) => {
+
+            const userId = String(data.user_id)
+
+            const username = data.username
+            const avatar = data.avatar
+
+            // Cập nhật tên và avatar trong danh sách conversation
+            const conversationItems =
+                document.querySelectorAll('.conversation_item')
+
+            conversationItems.forEach(item => {
+
+                const conversationId =
+                    item.dataset.conversationId
+
+                const conversation =
+                    this.conversations.find(
+                        conversation =>
+                            String(conversation.conversation_id) ===
+                            String(conversationId)
+                    )
+
+                if (!conversation) {
+                    return
+                }
+
+                if (
+                    String(conversation.user.id) !==
+                    userId
+                ) {
+                    return
+                }
+
+                if (username) {
+
+                    conversation.user.username =
+                        username
+
+                    const name =
+                        item.querySelector(
+                            '.conversation_name'
+                        )
+
+                    if (name) {
+                        name.textContent = username
+                    }
+                }
+
+                if (avatar) {
+
+                    conversation.user.avatar =
+                        avatar
+
+                    const avatarElement =
+                        item.querySelector(
+                            '.conversation_avatar img'
+                        )
+
+                    if (avatarElement) {
+                        avatarElement.src =
+                            `${API_URL}${avatar}?t=${Date.now()}`
+                    }
+                }
+            })
+
+            // Nếu đang mở cuộc trò chuyện với người này
+            if (
+                this.currentConversation &&
+                String(
+                    this.currentConversation.user.id
+                ) === userId
+            ) {
+
+                if (username) {
+
+                    this.currentConversation.user.username =
+                        username
+
+                    chatUserName.textContent =
+                        username
+                }
+
+                if (avatar) {
+
+                    this.currentConversation.user.avatar =
+                        avatar
+
+                    chatAvatar.src =
+                        `${API_URL}${avatar}?t=${Date.now()}`
+
+                    const messageAvatars =
+                        chatBody.querySelectorAll(
+                            '.message_avatar'
+                        )
+
+                    messageAvatars.forEach(
+                        messageAvatar => {
+                            messageAvatar.src =
+                                `${API_URL}${avatar}?t=${Date.now()}`
+                        }
+                    )
+                }
+
+
+            }
+        })
+
+        // Người dùng online / offline 
+        this.socket.on('user_online', (data) => {
+
+            if (!this.currentConversation) {
+                return
+            }
+
+            if (
+                String(data.user_id) ===
+                String(this.currentConversation.user.id)
+            ) {
+
+                chatUserStatus.textContent =
+                    'Đang hoạt động'
+            }
+        })
+
+        this.socket.on('user_offline', (data) => {
+
+            if (!this.currentConversation) {
+                return
+            }
+
+            if (
+                String(data.user_id) ===
+                String(this.currentConversation.user.id)
+            ) {
+
+                chatUserStatus.textContent =
+                    'Đang ngoại tuyến'
+            }
+        })
+
+        this.socket.on('user_online_status', (data) => {
+
+            if (!this.currentConversation) {
+                return
+            }
+
+            if (
+                String(data.user_id) !==
+                String(this.currentConversation.user.id)
+            ) {
+                return
+            }
+
+            chatUserStatus.textContent =
+                data.is_online
+                    ? 'Đang hoạt động'
+                    : 'Đang ngoại tuyến'
+        })
+
         this.socket.on('new_message', (message) => {
 
             console.log(
@@ -1135,6 +1344,8 @@ const chatApp = {
                     this.currentConversation.conversation_id
                 ) ===
                 String(message.conversation_id)
+
+            this.updateConversationPreview(message)
 
             // Tin nhắn của người khác
             if (
@@ -1168,6 +1379,12 @@ const chatApp = {
                 )
 
             }
+
+        })
+
+        this.socket.on('friend_accepted', () => {
+
+            this.loadConversations()
 
         })
 

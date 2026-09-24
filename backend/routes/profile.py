@@ -2,8 +2,10 @@ from flask import Blueprint, request, jsonify
 from backend.database import get_db
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
+from backend.extensions import socketio
 import os
 import uuid
+from pathlib import Path
 
 profile_bp = Blueprint('profile', __name__)
 
@@ -76,6 +78,32 @@ def update_profile():
 
     db.commit()
 
+    cursor.execute(
+        '''
+        SELECT DISTINCT cm2.user_id
+        FROM conversation_members cm1
+        JOIN conversation_members cm2
+            ON cm1.conversation_id = cm2.conversation_id
+        WHERE cm1.user_id = %s
+        AND cm2.user_id != %s
+        ''',
+        (
+            user['id'],
+            user['id']
+        )
+    )
+    
+    conversation_users = cursor.fetchall()
+    for conversation_user in conversation_users:
+        socketio.emit(
+            'profile_updated',
+            {
+                'user_id': user['id'],
+                'username': username
+            },
+            to=f"user_{conversation_user['user_id']}"
+        )
+    
     cursor.close()
     db.close()
 
@@ -119,13 +147,15 @@ def update_avatar():
             'success': False,
             'message': 'Không tìm thấy người dùng'
         }), 404
+    
+    project_folder = Path(__file__).resolve().parents[2]
 
     upload_folder = os.path.join(
-        os.getcwd(),
-        'uploads',
-        'avatars'
+        project_folder.parent
+        / 'WEB_Chat_Uploads'
+        / 'avatars'
     )
-
+    print('UPLOAD FOLDER:', upload_folder)
     os.makedirs(
         upload_folder,
         exist_ok=True
@@ -155,7 +185,31 @@ def update_avatar():
     )
 
     db.commit()
-
+    
+    cursor.execute(
+        '''
+        SELECT DISTINCT cm2.user_id
+        FROM conversation_members cm1
+        JOIN conversation_members cm2
+            ON cm1.conversation_id = cm2.conversation_id
+        WHERE cm1.user_id = %s
+        AND cm2.user_id != %s
+        ''',
+        (
+            user['id'],
+            user['id']
+        )
+    )
+    conversation_users = cursor.fetchall()
+    for conversation_user in conversation_users:
+        socketio.emit(
+            'profile_updated',
+            {
+                'user_id': user['id'],
+                'avatar': avatar_url
+            },
+            to=f"user_{conversation_user['user_id']}"
+        )
     cursor.close()
     db.close()
 

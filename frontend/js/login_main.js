@@ -1,7 +1,13 @@
 const $ = document.querySelector.bind(document)
 
 const LOGIN_STORAGE_KEY = 'CHAT_WATCH_LOGIN'
-
+const API_URL =
+    window.CHAT_WATCH_API_URL ||
+    (
+        window.location.port === '5000'
+            ? window.location.origin
+            : `${window.location.protocol}//${window.location.hostname}:5000`
+    )
 const form = $('.form')
 const username = $('#username')
 const password = $('#password')
@@ -91,7 +97,7 @@ const login = {
             try {
 
                 const response = await fetch(
-                    'http://127.0.0.1:5000/api/login',
+                    `${API_URL}/api/login`,
                     {
                         method: 'POST',
 
