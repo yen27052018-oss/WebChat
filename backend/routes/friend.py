@@ -417,7 +417,8 @@ def get_conversations():
                     '''
                     SELECT
                         sender_id,
-                        content
+                        content,
+                        message_type
                     FROM messages
                     WHERE conversation_id = %s
                     ORDER BY created_at DESC, id DESC

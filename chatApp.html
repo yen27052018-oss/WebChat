@@ -18,7 +18,7 @@
     <link rel="stylesheet" href="./frontend/css/chatApp_style.css">
     <link rel="stylesheet" href="./frontend/css/modals.css">
     <link rel="stylesheet" href="./frontend/css/error.css">
-    <link rel="stylesheet" href="./frontend/css/color.css">
+    <link rel="stylesheet" href="./frontend/css/common.css">
 
     <!-- font  -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -247,19 +247,20 @@
                             <!-- Nhập tin -->
                             <div class="chat_footer">
                                 <div class="chat_tools">
-                                    <button title="Emoji">
+                                    <button class="btn-small" id="emojiBtn" title="Emoji">
                                         <i class="fa-regular fa-face-smile"></i>
                                     </button>
-                                    <button title="Đính kèm">
+                                    <button class="btn-small" id="fileBtn" title="Đính kèm">
                                         <i class="fa-solid fa-paperclip"></i>
                                     </button>
-                                    <button title="Hình ảnh">
+                                    <button class="btn-small" id="imageBtn" title="Hình ảnh">
                                         <i class="fa-regular fa-image"></i>
                                     </button>
-                                    <button title="Tin nhắn thoại">
+                                    <button class="btn-small" id="voiceBtn" title="Tin nhắn thoại">
                                         <i class="fa-solid fa-microphone"></i>
                                     </button>
                                 </div>
+                                <input type="file" accept="image/*" id="imageInput" hidden>
                                 <div class="chat_input">
                                     <input type="text" id="messageInput" placeholder="Nhập tin nhắn..."
                                         autocomplete="off">

@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify
 from backend.database import get_db
 
+import cloudinary.uploader
+import backend.cloudinary_config
 
 message_bp = Blueprint( 'message',__name__)
 
@@ -190,17 +192,49 @@ def mark_messages_seen():
 @message_bp.route('/api/messages', methods=['POST'])
 def send_message():
 
-    data = request.get_json()
+    conversation_id = request.form.get('conversation_id')
+    sender_id = request.form.get('sender_id')
+    content = request.form.get('content', '').strip()
+    image = request.files.get('image')
 
-    conversation_id = data.get('conversation_id')
-    sender_id = data.get('sender_id')
-    content = data.get('content', '').strip()
-
-    if not conversation_id or not sender_id or content == '':
+    if not conversation_id or not sender_id:
+        return jsonify({
+            'success': False,
+            'message': 'thiếu thông tin'
+        }), 400
+    if content == '' and not image:
         return jsonify({
             'success': False,
             'message': 'Vui lòng nhập tin nhắn'
         }), 400
+    
+        message_type = 'text'
+
+    if image:
+        try:
+            result = cloudinary.uploader.upload(
+                image,
+                folder='chat-watch/images',
+                transformation=[
+                    {
+                        'width': 1280,
+                        'height': 1280,
+                        'crop': 'limit',
+                        'quality': 'auto'
+                    }
+                ]
+            )
+
+            content = result['secure_url']
+            message_type = 'image'
+
+        except Exception as error:
+            print(error)
+
+            return jsonify({
+                'success': False,
+                'message': 'Upload ảnh thất bại'
+            }), 500
 
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -244,14 +278,15 @@ def send_message():
                 %s,
                 %s,
                 %s,
-                'text',
+                %s,
                 'sent'
             )
             ''',
             (
                 conversation_id,
                 sender_id,
-                content
+                content,
+                message_type
             )
         )
 

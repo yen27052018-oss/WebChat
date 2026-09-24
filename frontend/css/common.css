@@ -1,0 +1,142 @@
+:root{
+    --logo-font:"Montserrat", sans-serif;
+
+    --white-color:#fff;
+    --black-color:#000;
+    --error-color:#D32F2F;
+    --separate-color:#adbbd1;
+    --desc-color:#5f6c80;
+    --input-color:#f1f2f4;
+    --hover-color:#f1f2f4;
+
+    --primary-color:#346fc2;
+    --primary-rgb:rgb(52, 111, 194194, 0.6);
+    --white-rgb:rgb(255, 255, 255, 0.4);
+    --dropdown-layout:rgb(14, 38, 79);
+
+    --shadown-layout:rgba(0, 0, 0, 0.19) 0px 10px 20px, rgba(0, 0, 0, 0.23) 0px 6px 6px;
+}
+
+.separate{
+    width: 1px;
+    height: 100%;
+    background-color: var(--separate-color);
+}
+
+.page_header {
+    height: 70px;
+
+    padding: 0 18px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    flex-shrink: 0;
+    color:var(--primary-color);
+}
+
+
+.page_title {
+    color: var(--primary-color);
+
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.page_acts {
+    display: flex;
+    align-items: center;
+
+    gap: 6px;
+}
+
+
+.page_act {
+    width: 34px;
+    height: 34px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 9px;
+
+    background: transparent;
+
+    color: var(--primary-color);
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease;
+}
+
+
+.page_act:hover {
+    color: #ffffff;
+
+    background: var(--primary-color);
+}
+
+
+.page_act i {
+    font-size: 15px;
+}
+
+
+.btn {
+    margin: 0 10px;
+    border: none;
+
+    height: 45px;
+    min-width: 88px;
+    background: #29313d;
+
+    font-size: 14px;
+    color: #fff;
+
+    cursor: pointer;
+}
+
+.btn-agree {
+    background: var(--primary-color);
+}
+
+.btn:hover {
+    opacity: 0.7;
+}
+
+.hide {
+    display: none;
+}
+
+.btn-small{
+    width: 30px;
+    height: 30px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 7px;
+
+    background: transparent;
+
+    color: var(--primary-color);
+
+    cursor: pointer;
+
+    transition:
+        color 0.2s ease,
+        background 0.2s ease;
+}
+
+.btn-small:hover{
+    color: var(--white-color);
+
+    background: var(--primary-color);
+}

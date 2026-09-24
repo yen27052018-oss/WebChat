@@ -72,6 +72,9 @@ const chatBody = $('#chatBody')
 const messageInput = $('#messageInput')
 const sendMessageBtn = $('#sendMessageBtn')
 
+const imageBtn = $('#imageBtn')
+const imageInput = $('#imageInput')
+
 const chatApp = {
 
     avatarFile: null,
@@ -223,9 +226,14 @@ const chatApp = {
 
                         <div class="message_content">
 
-                            <p>
-                                ${message.content}
-                            </p>
+                            ${message.message_type === 'image'
+                            ? `<img 
+                                            class="message_image" 
+                                            src="${message.content}" 
+                                            alt="Ảnh đã gửi"
+                                    >`
+                            : `<p>${message.content}</p>`
+                        }
 
                         </div>
 
@@ -347,6 +355,7 @@ const chatApp = {
             )
         }
     },
+
     loadFriendRequests: async function () {
 
         try {
@@ -423,6 +432,7 @@ const chatApp = {
 
         }
     },
+
     loadConversations: async function () {
         try {
             const userId = this.config.user.id
@@ -461,10 +471,21 @@ const chatApp = {
                             String(conversation.last_message.sender_id) ===
                             String(this.config.user.id)
 
-                        messagePreview =
-                            isMine
-                                ? `Bạn: ${conversation.last_message.content}`
-                                : conversation.last_message.content
+                        const isImage =
+                            conversation.last_message.message_type === 'image'
+
+                        if (isImage) {
+                            messagePreview =
+                                isMine
+                                    ? 'Bạn: Hình ảnh'
+                                    : 'Hình ảnh'
+
+                        } else {
+                            messagePreview =
+                                isMine
+                                    ? `Bạn: ${conversation.last_message.content}`
+                                    : conversation.last_message.content
+                        }
                     }
                     return `
                     <div
@@ -538,18 +559,141 @@ const chatApp = {
         )
     },
 
+    compressImage: function (image) {
+
+        return new Promise((resolve, reject) => {
+
+            const reader = new FileReader()
+
+            reader.onload = function (event) {
+
+                const img = new Image()
+
+                img.onload = function () {
+
+                    const maxWidth = 1280
+                    const maxHeight = 1280
+
+                    let width = img.width
+                    let height = img.height
+
+                    if (
+                        width > maxWidth ||
+                        height > maxHeight
+                    ) {
+
+                        const ratio = Math.min(
+                            maxWidth / width,
+                            maxHeight / height
+                        )
+
+                        width = Math.round(width * ratio)
+                        height = Math.round(height * ratio)
+                    }
+
+                    const canvas = document.createElement('canvas')
+
+                    canvas.width = width
+                    canvas.height = height
+
+                    const context = canvas.getContext('2d')
+
+                    context.drawImage(
+                        img,
+                        0,
+                        0,
+                        width,
+                        height
+                    )
+
+                    canvas.toBlob(
+                        function (blob) {
+
+                            if (!blob) {
+                                reject(
+                                    new Error(
+                                        'Không thể nén ảnh'
+                                    )
+                                )
+                                return
+                            }
+
+                            const compressedImage =
+                                new File(
+                                    [blob],
+                                    image.name,
+                                    {
+                                        type: 'image/jpeg',
+                                        lastModified: Date.now()
+                                    }
+                                )
+
+                            resolve(compressedImage)
+
+                        },
+                        'image/jpeg',
+                        0.8
+                    )
+                }
+
+                img.onerror = function () {
+                    reject(
+                        new Error(
+                            'Không thể đọc ảnh'
+                        )
+                    )
+                }
+
+                img.src = event.target.result
+            }
+
+            reader.onerror = function () {
+                reject(
+                    new Error(
+                        'Không thể đọc file'
+                    )
+                )
+            }
+
+            reader.readAsDataURL(image)
+        })
+    },
+
     handleEvent: function () {
         // ==================== TURN ON/OFF NOTIFICATION =======
+
+        const closeNotification = () => {
+            notificationMenu.classList.remove('open')
+            notificationIcon.classList.remove('active')
+        }
+
         notificationIcon.onclick = (e) => {
             e.stopPropagation();
+            const isOpen = notificationMenu.classList.contains('open')
+
+            if (
+                notificationMenu.classList.contains('open')
+            ) {
+                closeNotification()
+                return
+            }
             notificationMenu.classList.add('open')
+            notificationIcon.classList.add('active')
             this.loadFriendRequests()
         }
 
         notificationClose.onclick = (e) => {
             e.stopPropagation();
-            notificationMenu.classList.remove('open')
+            closeNotification()
         }
+
+        notificationMenu.onclick = (e) => {
+            e.stopPropagation()
+        }
+
+        document.addEventListener('click', () => {
+            closeNotification()
+        })
 
         notificationList.onclick = async (e) => {
 
@@ -1151,6 +1295,79 @@ const chatApp = {
             e.preventDefault()
 
             sendMessageBtn.click()
+        }
+
+        // ==================== SEND IMAGE =======================
+        imageBtn.onclick = () => {
+            imageInput.click()
+        }
+
+        imageInput.onchange = async () => {
+            const image = imageInput.files[0]
+
+            if (!image) {
+                return
+            }
+
+            try {
+                const compressedImage =
+                    await this.compressImage(image)
+
+                console.log(
+                    'Ảnh gốc:',
+                    (image.size / 1024 / 1024).toFixed(2),
+                    'MB'
+                )
+
+                console.log(
+                    'Ảnh sau khi nén:',
+                    (compressedImage.size / 1024 / 1024).toFixed(2),
+                    'MB'
+                )
+
+                const formData = new FormData()
+
+                formData.append(
+                    'conversation_id',
+                    this.currentConversation.conversation_id
+                )
+
+                formData.append(
+                    'sender_id',
+                    this.config.user.id
+                )
+
+                formData.append(
+                    'image',
+                    compressedImage
+                )
+                console.time('1-upload-image')
+                const response = await fetch(
+                    `${API_URL}/api/messages`,
+                    {
+                        method: 'POST',
+                        body: formData
+                    }
+                )
+                console.timeEnd('1-upload-image')
+                console.time('2-read-response')
+                const result = await response.json()
+                console.timeEnd('2-read-response')
+
+                // console.log(result)
+                if (!result.success) {
+                    return
+                }
+                console.time('3-load-messages')
+                await this.loadMessages(this.currentConversation.conversation_id)
+                await this.loadConversations()
+                console.timeEnd('3-load-messages')
+                console.time('4-load-conversations')
+                imageInput.value = ''
+                console.timeEnd('4-load-conversations')
+            } catch (error) {
+                console.error(error)
+            }
         }
     },
 

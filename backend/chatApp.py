@@ -2,7 +2,6 @@ import os
 
 from flask import Flask, request, send_from_directory
 from flask_cors import CORS
-
 from backend.extensions import socketio
 
 from backend.routes.register import register_bp
@@ -45,6 +44,7 @@ app.register_blueprint(
 app.register_blueprint(
     message_bp
 )
+
 
 
 # =========================

@@ -137,6 +137,8 @@ body{
     border-radius: 20px;
     padding:40px;
     box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+    display: flex;
+    flex-direction: column;
 }
 
 .login_header{
@@ -153,7 +155,7 @@ body{
 }
 
 .form_group{
-    margin-bottom: 35px;
+    margin-bottom: 15px;
 }
 
 .form_input{
@@ -161,7 +163,6 @@ body{
     align-items: center;
     gap: 15px;
 
-    margin-top: 25px;
     padding:10px;
     border: 1px solid var(--separate-color);
     border-radius: 10px;
