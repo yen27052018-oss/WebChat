@@ -74,11 +74,15 @@ const sendMessageBtn = $('#sendMessageBtn')
 
 const imageBtn = $('#imageBtn')
 const imageInput = $('#imageInput')
+const fileBtn = $('#fileBtn')
+const fileInput = $('#fileInput')
+const voiceBtn = $('#voiceBtn')
 
 const chatApp = {
 
     avatarFile: null,
     hasNotification: false,
+    mediaRecorder: null,
     currentConversation: null,
     socket: null,
     conversations: [],
@@ -167,7 +171,6 @@ const chatApp = {
                 chatBody.innerHTML = ''
                 return
             }
-
             chatBody.innerHTML =
                 result.messages.map((message, index) => {
 
@@ -228,15 +231,26 @@ const chatApp = {
 
                             ${message.message_type === 'image'
                             ? `<img 
-                                            class="message_image" 
-                                            src="${message.content}" 
-                                            alt="Ảnh đã gửi"
-                                    >`
-                            : `<p>${message.content}</p>`
+                                    class="message_image" 
+                                    src="${message.content}" 
+                                    alt="Ảnh đã gửi"
+                                >`
+                            : message.message_type === 'file'
+                                ? `<a
+                                        class="message_file"
+                                        href="${message.content}"
+                                        target="_blank"
+                                        download="${message.file_name}"
+                                    >
+                                        <i class="fa-regular fa-file"></i>
+
+                                        <span>
+                                            ${message.file_name}
+                                        </span>
+                                    </a>`
+                                : `<p>${message.content}</p>`
                         }
-
                         </div>
-
                         ${showStatus
                             ? `
                                     <span class="message_status">
@@ -250,8 +264,40 @@ const chatApp = {
                 `
                 }).join('')
 
-            chatBody.scrollTop =
-                chatBody.scrollHeight
+            const messageImages =
+                chatBody.querySelectorAll('.message_image')
+
+            if (messageImages.length > 0) {
+
+                await Promise.all(
+                    [...messageImages].map(image => {
+
+                        if (image.complete) {
+                            return Promise.resolve()
+                        }
+
+                        return new Promise(resolve => {
+
+                            image.onload = resolve
+                            image.onerror = resolve
+
+                        })
+
+                    })
+                )
+            }
+
+            const lastMessage =
+                chatBody.lastElementChild
+
+            if (lastMessage) {
+
+                lastMessage.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'end'
+                })
+
+            }
 
         } catch (error) {
 
@@ -271,6 +317,73 @@ const chatApp = {
         this.socket.emit('message_seen', {
             conversation_id: conversationId,
             user_id: this.config.user.id
+        })
+    },
+
+    appendMessage: function (message) {
+
+        const messageElement =
+            document.createElement('div')
+
+        const isMine =
+            String(message.sender_id) ===
+            String(this.config.user.id)
+
+        messageElement.className =
+            isMine
+                ? 'message sent'
+                : 'message received'
+
+        messageElement.innerHTML = `
+            <div class="message_content">
+
+                ${message.message_type === 'image'
+                ? `
+                            <img
+                                class="message_image"
+                                src="${message.content}"
+                                alt="Ảnh đã gửi"
+                            >
+                        `
+                : message.message_type === 'file'
+                    ? `
+                                <a
+                                    class="message_file"
+                                    href="${message.content}"
+                                    target="_blank"
+                                    download="${message.file_name}"
+                                >
+                                    <i class="fa-regular fa-file"></i>
+
+                                    <span>
+                                        ${message.file_name}
+                                    </span>
+                                </a>
+                            `
+                    : `
+                                <p>
+                                    ${message.content}
+                                </p>
+                            `
+            }
+
+            </div>
+
+            ${isMine
+                ? `
+                        <span class="message_status">
+                            Đã gửi
+                        </span>
+                    `
+                : ''
+            }
+        `
+
+        chatBody.appendChild(messageElement)
+
+        messageElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'end'
         })
     },
 
@@ -1303,6 +1416,7 @@ const chatApp = {
         }
 
         imageInput.onchange = async () => {
+
             const image = imageInput.files[0]
 
             if (!image) {
@@ -1310,22 +1424,52 @@ const chatApp = {
             }
 
             try {
+
                 const compressedImage =
                     await this.compressImage(image)
 
-                console.log(
-                    'Ảnh gốc:',
-                    (image.size / 1024 / 1024).toFixed(2),
-                    'MB'
+                // Tạo URL tạm cho ảnh
+                const previewUrl =
+                    URL.createObjectURL(compressedImage)
+
+                // Hiển thị ảnh ngay lập tức
+                chatBody.insertAdjacentHTML(
+                    'beforeend',
+                    `
+                <div class="message sent message_pending">
+
+                    <div class="message_content">
+
+                        <img
+                            class="message_image"
+                            src="${previewUrl}"
+                            alt="Ảnh đang gửi"
+                        >
+
+                    </div>
+
+                    <span class="message_status">
+                        Đang gửi...
+                    </span>
+
+                </div>
+            `
                 )
 
-                console.log(
-                    'Ảnh sau khi nén:',
-                    (compressedImage.size / 1024 / 1024).toFixed(2),
-                    'MB'
-                )
+                // Cuộn xuống cuối
+                const lastMessage =
+                    chatBody.lastElementChild
 
-                const formData = new FormData()
+                if (lastMessage) {
+                    lastMessage.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'end'
+                    })
+                }
+
+
+                const formData =
+                    new FormData()
 
                 formData.append(
                     'conversation_id',
@@ -1341,7 +1485,8 @@ const chatApp = {
                     'image',
                     compressedImage
                 )
-                console.time('1-upload-image')
+
+
                 const response = await fetch(
                     `${API_URL}/api/messages`,
                     {
@@ -1349,24 +1494,190 @@ const chatApp = {
                         body: formData
                     }
                 )
-                console.timeEnd('1-upload-image')
-                console.time('2-read-response')
-                const result = await response.json()
-                console.timeEnd('2-read-response')
 
-                // console.log(result)
+                const result =
+                    await response.json()
+
+
                 if (!result.success) {
+
+                    console.error(
+                        result.message
+                    )
+
                     return
                 }
-                console.time('3-load-messages')
-                await this.loadMessages(this.currentConversation.conversation_id)
+
+
+                // Upload thành công
+                await this.loadMessages(
+                    this.currentConversation.conversation_id
+                )
+
                 await this.loadConversations()
-                console.timeEnd('3-load-messages')
-                console.time('4-load-conversations')
+
+
+                // Giải phóng URL tạm
+                URL.revokeObjectURL(
+                    previewUrl
+                )
+
                 imageInput.value = ''
-                console.timeEnd('4-load-conversations')
+
+
             } catch (error) {
-                console.error(error)
+
+                console.error(
+                    'Lỗi gửi ảnh:',
+                    error
+                )
+
+            }
+        }
+
+        // ===================== SEND FILE ===========================
+        fileBtn.onclick = () => {
+            fileInput.click()
+        }
+
+        fileInput.onchange = async () => {
+
+            const file =
+                fileInput.files[0]
+
+            if (!file) {
+                return
+            }
+
+            const maxSize =
+                60 * 1024 * 1024
+
+            if (file.size > maxSize) {
+
+                console.log(
+                    'File quá lớn'
+                )
+
+                fileInput.value = ''
+
+                return
+            }
+
+            if (!this.currentConversation) {
+                return
+            }
+
+            // Tạo message tạm
+            const pendingMessage = document.createElement('div')
+
+            pendingMessage.className =
+                'message sent message_pending'
+
+            pendingMessage.innerHTML = `
+        <div class="message_content">
+
+            <div class="message_file">
+
+                <i class="fa-regular fa-file"></i>
+
+                <span>
+                    ${file.name}
+                </span>
+
+            </div>
+
+        </div>
+
+        <span class="message_status">
+            Đang gửi...
+        </span>
+    `
+
+            chatBody.appendChild(
+                pendingMessage
+            )
+
+            // Cuộn xuống cuối
+            pendingMessage.scrollIntoView({
+                behavior: 'smooth',
+                block: 'end'
+            })
+
+            try {
+
+                const formData =
+                    new FormData()
+
+                formData.append(
+                    'conversation_id',
+                    this.currentConversation.conversation_id
+                )
+
+                formData.append(
+                    'sender_id',
+                    this.config.user.id
+                )
+
+                formData.append(
+                    'file',
+                    file
+                )
+
+                console.log(
+                    'Đang upload:',
+                    file.name
+                )
+
+                const response =
+                    await fetch(
+                        `${API_URL}/api/messages`,
+                        {
+                            method: 'POST',
+                            body: formData
+                        }
+                    )
+
+                const result =
+                    await response.json()
+
+                if (!result.success) {
+
+                    console.error(
+                        result.message
+                    )
+
+                    pendingMessage
+                        .querySelector('.message_status')
+                        .textContent = 'Gửi thất bại'
+
+                    return
+                }
+
+                console.log(
+                    'Upload file thành công'
+                )
+
+                // Xóa message tạm
+                pendingMessage.remove()
+                // Hiển thị file thật ngay lập tức
+                this.appendMessage(result.message)
+
+                // Cập nhật preview cuộc trò chuyện
+                this.updateConversationPreview(result.message)
+                // Chưa load lại messages/conversations
+                fileInput.value = ''
+
+            } catch (error) {
+
+                console.error(
+                    'Lỗi gửi file:',
+                    error
+                )
+
+                pendingMessage
+                    .querySelector('.message_status')
+                    .textContent = 'Gửi thất bại'
+
             }
         }
     },
@@ -1548,7 +1859,7 @@ const chatApp = {
                     : 'Đang ngoại tuyến'
         })
 
-        this.socket.on('new_message', (message) => {
+        this.socket.on('new_message', async (message) => {
 
             console.log(
                 'Nhận tin nhắn realtime:',
@@ -1591,10 +1902,9 @@ const chatApp = {
             // Chỉ load lại nếu đang ở conversation đó
             if (isCurrentConversation) {
 
-                this.loadMessages(
+                await this.loadMessages(
                     this.currentConversation.conversation_id
                 )
-
             }
 
         })
@@ -1639,9 +1949,7 @@ const chatApp = {
         // Kiểm tra lời mời ngay khi mở trang
         this.loadFriendRequests()
         this.loadConversations()
-        setInterval(() => {
-            this.loadFriendRequests()
-        }, 5000)
+        setInterval(() => { this.loadFriendRequests() }, 10000)
     }
 }
 

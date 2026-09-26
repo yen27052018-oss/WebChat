@@ -1,7 +1,13 @@
 from flask import Blueprint, request, jsonify
 from backend.database import get_db
 
+import os
+import uuid
+
+from werkzeug.utils import secure_filename
+
 import cloudinary.uploader
+# import cloudinary.utils
 import backend.cloudinary_config
 
 message_bp = Blueprint( 'message',__name__)
@@ -57,6 +63,7 @@ def get_messages():
                 u.username AS sender_username,
                 u.avatar AS sender_avatar,
                 m.content,
+                m.file_name,
                 m.message_type,
                 m.status,
                 m.created_at,
@@ -195,21 +202,93 @@ def send_message():
     conversation_id = request.form.get('conversation_id')
     sender_id = request.form.get('sender_id')
     content = request.form.get('content', '').strip()
+    
     image = request.files.get('image')
+    file = request.files.get('file')
+    voice = request.files.get('voice')
+    
+    file_name = None
+
+    if file:
+        file_name = file.filename
 
     if not conversation_id or not sender_id:
         return jsonify({
             'success': False,
             'message': 'thiếu thông tin'
         }), 400
-    if content == '' and not image:
+    if content == '' and not image and not file and not voice:
         return jsonify({
             'success': False,
             'message': 'Vui lòng nhập tin nhắn'
         }), 400
     
-        message_type = 'text'
+    message_type = 'text'
+    if file:
+        try:
 
+            original_name = file.filename
+
+            safe_name = secure_filename(
+                original_name
+            )
+
+            name, extension = os.path.splitext(
+                safe_name
+            )
+
+            unique_name = (
+                f'{name}_{uuid.uuid4().hex[:8]}'
+                f'{extension}'
+            )
+
+            result = cloudinary.uploader.upload(
+                file,
+                folder='chat-watch-files',
+                resource_type='raw',
+                public_id=unique_name
+            )
+
+            content = result['secure_url']
+            download_url = cloudinary.utils.cloudinary_url(
+                unique_name,
+                resource_type='raw',
+                type='upload',
+                secure=True,
+                flags=f'attachment:{file_name}'
+            )[0]
+            message_type = 'file'
+
+        except Exception as error:
+
+            print(error)
+
+            return jsonify({
+                'success': False,
+                'message': 'Upload file thất bại'
+            }), 500
+
+    if voice:
+        try:
+
+            result = cloudinary.uploader.upload(
+                voice,
+                folder='chat-watch/voices',
+                resource_type='raw'
+            )
+
+            content = result['secure_url']
+            message_type = 'voice'
+
+        except Exception as error:
+
+            print(error)
+
+            return jsonify({
+                'success': False,
+                'message': 'Upload voice thất bại'
+            }), 500
+    
     if image:
         try:
             result = cloudinary.uploader.upload(
@@ -271,10 +350,12 @@ def send_message():
                 conversation_id,
                 sender_id,
                 content,
+                file_name,
                 message_type,
                 status
             )
             VALUES (
+                %s,
                 %s,
                 %s,
                 %s,
@@ -286,6 +367,7 @@ def send_message():
                 conversation_id,
                 sender_id,
                 content,
+                file_name,
                 message_type
             )
         )
@@ -312,6 +394,7 @@ def send_message():
                 conversation_id,
                 sender_id,
                 content,
+                file_name,
                 message_type,
                 status,
                 created_at,
