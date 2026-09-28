@@ -189,7 +189,7 @@
 
                         <!-- Danh sách được JS render -->
                         <div class="conversation_list" id="conversationList">
-                            
+
                         </div>
                     </section>
 
@@ -228,13 +228,13 @@
                                 </div>
 
                                 <div class="chat_actions">
-                                    <button title="Gọi thoại">
+                                    <button id="btnCall" title="Gọi thoại">
                                         <i class="fa-solid fa-phone"></i>
                                     </button>
-                                    <button title="Gọi video">
+                                    <button id="btnCallVideo" title="Gọi video">
                                         <i class="fa-solid fa-video"></i>
                                     </button>
-                                    <button title="Thêm">
+                                    <button id="btnMore" title="Thêm">
                                         <i class="fa-solid fa-ellipsis"></i>
                                     </button>
                                 </div>
@@ -261,7 +261,8 @@
                                     </button>
                                 </div>
                                 <input type="file" accept="image/*" id="imageInput" hidden>
-                                <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar" id="fileInput" hidden>
+                                <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+                                    id="fileInput" hidden>
                                 <div class="chat_input">
                                     <input type="text" id="messageInput" placeholder="Nhập tin nhắn..."
                                         autocomplete="off">
@@ -642,6 +643,113 @@
                 </div> -->
             </div>
         </div>
+    </div>
+
+
+    <!-- Incoming call -->
+    <div class="call_overlay">
+
+        <div class="call_popup">
+
+            <!-- Close -->
+            <button class="call_close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+
+            <!-- Avatar -->
+            <div class="call_avatar">
+                <img src="./assests/img/default_avt.png" alt="Avatar">
+            </div>
+
+
+            <!-- Caller information -->
+            <div class="call_info">
+
+                <h3 class="call_name">
+                </h3>
+
+                <p class="call_status">
+                    Đang gọi...
+                </p>
+
+            </div>
+
+
+            <!-- Actions -->
+            <div class="call_actions">
+
+                <button class="call_btn call_reject">
+                    <i class="fa-solid fa-phone-slash"></i>
+                    <span>Từ chối</span>
+                </button>
+
+                <button class="call_btn call_accept">
+                    <i class="fa-solid fa-phone"></i>
+                    <span>Chấp nhận</span>
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+    <div class="call_window">
+
+        <!-- Background avatar -->
+        <div class="call_background">
+            <img src="./assests/img/default_avt.png" alt="">
+        </div>
+
+
+        <!-- Nội dung cuộc gọi -->
+        <div class="call_content">
+
+            <div class="call_header">
+
+                <span class="call_title">
+                </span>
+
+                <div class="call_window_actions">
+
+                    <button class="call_minimize">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+
+                </div>
+
+            </div>
+
+            <div class="call_user">
+                <div class="call_window_avatar">
+                    <img src="./assests/img/default_avt.png" alt="Avatar">
+                </div>
+                <h3 class="call_window_name">
+                </h3>
+                <p class="call_window_status">
+                    Đang gọi...
+                </p>
+                <span class="call_duration">
+                    00:00
+                </span>
+            </div>
+            <!-- Các nút điều khiển -->
+            <div class="call_controls">
+                <!-- Tắt mic -->
+                <div class="call_control call_mic" title="Tắt microphone">
+                    <i class="fa-solid fa-microphone"></i>
+                </div>
+                <!-- Video -->
+                <div class="call_control call_video off" title="Bật video">
+                    <i class="fa-solid fa-video-slash"></i>
+                </div>
+                <!-- Kết thúc -->
+                <div class="call_control call_end" title="Kết thúc cuộc gọi">
+                    <i class="fa-solid fa-phone"></i>
+                </div>
+            </div>
+        </div>
+
     </div>
     <script src="./frontend/js/error.js"></script>
     <script src="./frontend/js/avt_render.js"></script>

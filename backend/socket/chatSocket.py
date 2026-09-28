@@ -3,8 +3,15 @@ from flask_socketio import join_room
 
 from backend.extensions import socketio
 from backend.database import get_db
+from threading import Timer
+import time
 
 online_users = {}
+ringing_calls = {}
+active_calls = {}
+call_timers = {}
+call_callers = {}
+call_start_times = {}
 
 # =========================
 # SOCKET.IO CONNECT
@@ -478,7 +485,8 @@ def handle_disconnect():
                 offline_user = user_id
 
             break
-
+    
+    
     if offline_user:
 
         print(
@@ -498,3 +506,1011 @@ def handle_disconnect():
         print(
             'Client đã ngắt kết nối Socket.IO'
         )
+        
+# =========================
+# SAVE CALL MESSAGE
+# =========================
+
+def save_call_message(
+    caller_id,
+    receiver_id,
+    call_status,
+    call_duration=None
+):
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    try:
+
+        # =========================
+        # TÌM CONVERSATION
+        # =========================
+
+        cursor.execute(
+            '''
+            SELECT c.id
+            FROM conversations c
+
+            JOIN conversation_members cm1
+                ON cm1.conversation_id = c.id
+
+            JOIN conversation_members cm2
+                ON cm2.conversation_id = c.id
+
+            WHERE cm1.user_id = %s
+                AND cm2.user_id = %s
+
+            LIMIT 1
+            ''',
+            (
+                caller_id,
+                receiver_id
+            )
+        )
+
+        conversation = cursor.fetchone()
+
+        if not conversation:
+
+            print(
+                'Không tìm thấy conversation:',
+                caller_id,
+                receiver_id
+            )
+
+            return None
+
+        conversation_id = conversation['id']
+
+        # =========================
+        # XÁC ĐỊNH STATUS
+        # =========================
+
+        message_status = (
+            'delivered'
+            if receiver_id in online_users
+            else 'sent'
+        )
+
+        # =========================
+        # INSERT CALL MESSAGE
+        # =========================
+
+        cursor.execute(
+            '''
+            INSERT INTO messages (
+                conversation_id,
+                sender_id,
+                content,
+                message_type,
+                call_duration,
+                status
+            )
+
+            VALUES (
+                %s,
+                %s,
+                %s,
+                'call',
+                %s,
+                %s
+            )
+            ''',
+            (
+                conversation_id,
+                caller_id,
+                call_status,
+                call_duration,
+                message_status
+            )
+        )
+
+        message_id = cursor.lastrowid
+
+        # =========================
+        # UPDATE CONVERSATION
+        # =========================
+
+        cursor.execute(
+            '''
+            UPDATE conversations
+
+            SET updated_at =
+                CURRENT_TIMESTAMP
+
+            WHERE id = %s
+            ''',
+            (
+                conversation_id,
+            )
+        )
+
+        db.commit()
+
+        # =========================
+        # LẤY MESSAGE VỪA INSERT
+        # =========================
+
+        cursor.execute(
+            '''
+            SELECT
+                m.id,
+                m.conversation_id,
+                m.sender_id,
+                m.content,
+                m.message_type,
+                m.call_duration,
+                m.status,
+                m.created_at
+
+            FROM messages m
+
+            WHERE m.id = %s
+            ''',
+            (
+                message_id,
+            )
+        )
+
+        message = cursor.fetchone()
+
+        if message:
+
+            if message['created_at']:
+
+                message['created_at'] = \
+                    message['created_at'].strftime(
+                        '%Y-%m-%d %H:%M:%S'
+                    )
+
+        print(
+            'Đã lưu call message:',
+            message
+        )
+
+        return message
+
+    except Exception as error:
+
+        db.rollback()
+
+        print(
+            'Lỗi lưu lịch sử cuộc gọi:',
+            error
+        )
+
+        return None
+
+    finally:
+
+        cursor.close()
+        db.close()
+
+
+# =========================
+# CALL REQUEST
+# =========================
+
+@socketio.on('call_request')
+def handle_call_request(data):
+
+    caller_id = data.get(
+        'caller_id'
+    )
+
+    receiver_id = data.get(
+        'receiver_id'
+    )
+
+    if (
+        not caller_id
+        or not receiver_id
+    ):
+        return
+
+    caller_id = str(caller_id)
+    receiver_id = str(receiver_id)
+
+    # =========================
+    # KIỂM TRA NGƯỜI GỌI
+    # =========================
+
+    if (
+        caller_id in active_calls
+        or caller_id in ringing_calls
+    ):
+
+        socketio.emit(
+            'call_error',
+            {
+                'type': 'busy',
+                'user_id': caller_id,
+                'message':
+                    'Bạn đang trong cuộc gọi'
+            },
+            room=f'user_{caller_id}'
+        )
+
+        return
+
+    # =========================
+    # KIỂM TRA NGƯỜI NHẬN
+    # =========================
+
+    if (
+        receiver_id in active_calls
+        or receiver_id in ringing_calls
+    ):
+
+        socketio.emit(
+            'call_busy',
+            {
+                'user_id': receiver_id,
+                'message':
+                    'Người dùng đang trong cuộc gọi'
+            },
+            room=f'user_{caller_id}'
+        )
+
+        return
+
+    # =========================
+    # LƯU TRẠNG THÁI RINGING
+    # =========================
+
+    ringing_calls[caller_id] = receiver_id
+    ringing_calls[receiver_id] = caller_id
+
+    # Lưu người gọi ban đầu
+    call_callers[caller_id] = caller_id
+    call_callers[receiver_id] = caller_id
+
+    # =========================
+    # GỬI CUỘC GỌI
+    # =========================
+
+    socketio.emit(
+        'incoming_call',
+        {
+            'caller_id': caller_id
+        },
+        room=f'user_{receiver_id}'
+    )
+
+    # =========================
+    # TIMER 60 GIÂY
+    # =========================
+
+    timer = Timer(
+        60,
+        handle_call_timeout,
+        args=(
+            caller_id,
+            receiver_id
+        )
+    )
+
+    call_timers[caller_id] = timer
+
+    timer.start()
+
+
+# =========================
+# CALL TIMEOUT
+# =========================
+
+# =========================
+# CALL TIMEOUT
+# =========================
+
+def handle_call_timeout(caller_id, receiver_id):
+
+    caller_id = str(caller_id)
+    receiver_id = str(receiver_id)
+
+    # Cuộc gọi không còn ringing
+    if (
+        caller_id not in ringing_calls
+        or
+        ringing_calls.get(caller_id)
+        != receiver_id
+    ):
+        return
+
+    # =========================
+    # XÓA RINGING
+    # =========================
+
+    ringing_calls.pop(
+        caller_id,
+        None
+    )
+
+    ringing_calls.pop(
+        receiver_id,
+        None
+    )
+
+    # =========================
+    # XÓA TIMER
+    # =========================
+
+    call_timers.pop(
+        caller_id,
+        None
+    )
+
+    # =========================
+    # LƯU LỊCH SỬ
+    # =========================
+
+    message = save_call_message(
+        caller_id,
+        receiver_id,
+        'timeout'
+    )
+
+    # =========================
+    # GỬI LỊCH SỬ CHO 2 USER
+    # =========================
+
+    if message:
+
+        socketio.emit(
+            'new_message',
+            message,
+            room=f'user_{caller_id}'
+        )
+
+        socketio.emit(
+            'new_message',
+            message,
+            room=f'user_{receiver_id}'
+        )
+
+    # =========================
+    # BÁO CALLER
+    # =========================
+
+    socketio.emit(
+        'call_timeout',
+        {
+            'type': 'caller',
+            'user_id': receiver_id
+        },
+        room=f'user_{caller_id}'
+    )
+
+    # =========================
+    # BÁO RECEIVER
+    # =========================
+
+    socketio.emit(
+        'call_timeout',
+        {
+            'type': 'receiver',
+            'user_id': caller_id
+        },
+        room=f'user_{receiver_id}'
+    )
+
+    print(
+        f'Cuộc gọi {caller_id} -> '
+        f'{receiver_id} đã quá 60 giây'
+    )
+
+# =========================
+# CALL REJECT
+# =========================
+
+# =========================
+# CALL REJECT
+# =========================
+
+@socketio.on('call_reject')
+def handle_call_reject(data):
+
+    caller_id = data.get(
+        'caller_id'
+    )
+
+    receiver_id = data.get(
+        'receiver_id'
+    )
+
+    if (
+        not caller_id
+        or not receiver_id
+    ):
+        return
+
+    caller_id = str(caller_id)
+    receiver_id = str(receiver_id)
+
+    # =========================
+    # KIỂM TRA CUỘC GỌI
+    # =========================
+
+    if (
+        caller_id not in ringing_calls
+        or
+        ringing_calls.get(caller_id)
+        != receiver_id
+    ):
+        return
+
+    # =========================
+    # HỦY TIMER
+    # =========================
+
+    timer = call_timers.pop(
+        caller_id,
+        None
+    )
+
+    if timer:
+        timer.cancel()
+
+    # =========================
+    # XÓA RINGING
+    # =========================
+
+    ringing_calls.pop(
+        caller_id,
+        None
+    )
+
+    ringing_calls.pop(
+        receiver_id,
+        None
+    )
+
+    # =========================
+    # LƯU LỊCH SỬ
+    # =========================
+
+    message = save_call_message(
+        caller_id,
+        receiver_id,
+        'rejected'
+    )
+
+    # =========================
+    # GỬI LỊCH SỬ CHO 2 USER
+    # =========================
+
+    if message:
+
+        socketio.emit(
+            'new_message',
+            message,
+            room=f'user_{caller_id}'
+        )
+
+        socketio.emit(
+            'new_message',
+            message,
+            room=f'user_{receiver_id}'
+        )
+
+    # =========================
+    # BÁO TỪ CHỐI CHO CALLER
+    # =========================
+
+    socketio.emit(
+        'call_rejected',
+        {
+            'user_id': receiver_id
+        },
+        room=f'user_{caller_id}'
+    )
+
+    # =========================
+    # BÁO TỪ CHỐI CHO RECEIVER
+    # =========================
+
+    socketio.emit(
+        'call_rejected',
+        {
+            'user_id': caller_id
+        },
+        room=f'user_{receiver_id}'
+    )
+
+    print(
+        f'{receiver_id} đã từ chối '
+        f'cuộc gọi từ {caller_id}'
+    )
+
+
+# =========================
+# CALL END / CANCEL
+# =========================
+
+# =========================
+# CALL END / CANCEL
+# =========================
+
+@socketio.on('call_end')
+def handle_call_end(data):
+
+    user_id = data.get(
+        'user_id'
+    )
+
+    if not user_id:
+        return
+
+    user_id = str(user_id)
+
+    # =========================
+    # ĐANG ĐỔ CHUÔNG
+    # =========================
+
+    if user_id in ringing_calls:
+
+        other_user_id = (
+            ringing_calls[user_id]
+        )
+
+        # =========================
+        # LẤY NGƯỜI GỌI BAN ĐẦU
+        # =========================
+
+        caller_id = call_callers.get(
+            user_id
+        )
+
+        if not caller_id:
+
+            caller_id = call_callers.get(
+                other_user_id
+            )
+
+        if not caller_id:
+            return
+
+        # =========================
+        # HỦY TIMER
+        # =========================
+
+        timer = call_timers.pop(
+            caller_id,
+            None
+        )
+
+        if timer:
+            timer.cancel()
+
+        # =========================
+        # XÓA RINGING
+        # =========================
+
+        ringing_calls.pop(
+            user_id,
+            None
+        )
+
+        ringing_calls.pop(
+            other_user_id,
+            None
+        )
+
+        # =========================
+        # LƯU LỊCH SỬ
+        # =========================
+
+        message = save_call_message(
+            caller_id,
+            other_user_id
+            if caller_id == user_id
+            else user_id,
+            'cancelled'
+        )
+
+        # =========================
+        # GỬI LỊCH SỬ CHO 2 USER
+        # =========================
+
+        if message:
+
+            socketio.emit(
+                'new_message',
+                message,
+                room=f'user_{caller_id}'
+            )
+
+            socketio.emit(
+                'new_message',
+                message,
+                room=f'user_{other_user_id}'
+            )
+
+        # =========================
+        # XÓA CALL CALLERS
+        # =========================
+
+        call_callers.pop(
+            caller_id,
+            None
+        )
+
+        call_callers.pop(
+            other_user_id,
+            None
+        )
+
+        # =========================
+        # BÁO HỦY CHO NGƯỜI CÒN LẠI
+        # =========================
+
+        socketio.emit(
+            'call_cancelled',
+            {
+                'user_id': user_id
+            },
+            room=f'user_{other_user_id}'
+        )
+
+        print(
+            f'{caller_id} đã hủy cuộc gọi '
+            f'tới {other_user_id}'
+        )
+
+        return
+
+    # =========================
+    # ĐANG ACTIVE CALL
+    # =========================
+
+    if user_id not in active_calls:
+        return
+
+    other_user_id = active_calls[user_id]
+
+    # =========================
+    # XÁC ĐỊNH CALLER GỐC
+    # =========================
+
+    caller_id = call_callers.get(user_id)
+
+    if not caller_id:
+        return
+
+    caller_id = str(caller_id)
+
+    if caller_id == user_id:
+        receiver_id = other_user_id
+    else:
+        receiver_id = user_id
+
+    # =========================
+    # TÍNH THỜI GIAN
+    # =========================
+
+    start_time = call_start_times.get(user_id)
+
+    if start_time:
+        call_duration = int(
+            time.time() - start_time
+        )
+    else:
+        call_duration = 0
+
+    # =========================
+    # XÓA ACTIVE CALL
+    # =========================
+
+    active_calls.pop(
+        user_id,
+        None
+    )
+
+    active_calls.pop(
+        other_user_id,
+        None
+    )
+
+    # =========================
+    # XÓA THỜI GIAN
+    # =========================
+
+    call_start_times.pop(
+        user_id,
+        None
+    )
+
+    call_start_times.pop(
+        other_user_id,
+        None
+    )
+
+    # =========================
+    # XÓA CALLER
+    # =========================
+
+    call_callers.pop(
+        user_id,
+        None
+    )
+
+    call_callers.pop(
+        other_user_id,
+        None
+    )
+
+    # =========================
+    # LƯU LỊCH SỬ
+    # =========================
+
+    message = save_call_message(
+        caller_id,
+        receiver_id,
+        'accepted',
+        call_duration
+    )
+
+    # =========================
+    # GỬI LỊCH SỬ CHO 2 NGƯỜI
+    # =========================
+
+    if message:
+
+        socketio.emit(
+            'new_message',
+            message,
+            room=f'user_{caller_id}'
+        )
+
+        socketio.emit(
+            'new_message',
+            message,
+            room=f'user_{receiver_id}'
+        )
+
+    # =========================
+    # BÁO KẾT THÚC
+    # =========================
+
+    socketio.emit(
+        'call_ended',
+        {
+            'user_id': user_id,
+            'duration': call_duration
+        },
+        room=f'user_{other_user_id}'
+    )
+
+
+# =========================
+# CALL ACCEPT
+# =========================
+
+# =========================
+# CALL ACCEPT
+# =========================
+
+@socketio.on('call_accept')
+def handle_call_accept(data):
+
+    caller_id = data.get(
+        'caller_id'
+    )
+
+    receiver_id = data.get(
+        'receiver_id'
+    )
+
+    if (
+        not caller_id
+        or not receiver_id
+    ):
+        return
+
+    caller_id = str(caller_id)
+    receiver_id = str(receiver_id)
+
+    # =========================
+    # KIỂM TRA CUỘC GỌI
+    # =========================
+
+    if (
+        caller_id not in ringing_calls
+        or
+        ringing_calls.get(caller_id)
+        != receiver_id
+    ):
+        return
+
+    # =========================
+    # HỦY TIMER
+    # =========================
+
+    timer = call_timers.pop(
+        caller_id,
+        None
+    )
+
+    if timer:
+        timer.cancel()
+
+    # =========================
+    # XÓA RINGING
+    # =========================
+
+    ringing_calls.pop(
+        caller_id,
+        None
+    )
+
+    ringing_calls.pop(
+        receiver_id,
+        None
+    )
+
+    active_calls[caller_id] = receiver_id
+
+    active_calls[receiver_id] = caller_id
+    
+    start_time = time.time()
+
+    call_start_times[caller_id] = start_time
+    call_start_times[receiver_id] = start_time
+
+
+    call_callers[caller_id] = caller_id
+    
+    call_callers[receiver_id] = caller_id
+    
+
+    # =========================
+    # BÁO CHO CALLER
+    # =========================
+
+    socketio.emit(
+        'call_accepted',
+        {
+            'user_id': receiver_id
+        },
+        room=f'user_{caller_id}'
+    )
+
+    # =========================
+    # BÁO CHO RECEIVER
+    # =========================
+
+    socketio.emit(
+        'call_accepted',
+        {
+            'user_id': caller_id
+        },
+        room=f'user_{receiver_id}'
+    )
+
+    print(
+        f'{receiver_id} đã nhận cuộc gọi '
+        f'từ {caller_id}'
+    )
+    
+    
+    
+# WEB RTC 
+
+@socketio.on('webrtc_offer')
+def handle_webrtc_offer(data):
+
+    target_user_id = data.get(
+        'target_user_id'
+    )
+
+    caller_id = data.get(
+        'user_id'
+    )
+
+    offer = data.get(
+        'offer'
+    )
+
+    if (
+        not target_user_id
+        or not caller_id
+        or not offer
+    ):
+        return
+
+    target_user_id = str(
+        target_user_id
+    )
+
+    caller_id = str(
+        caller_id
+    )
+
+    socketio.emit(
+        'webrtc_offer',
+        {
+            'user_id': caller_id,
+            'offer': offer
+        },
+        room=f'user_{target_user_id}'
+    )
+
+@socketio.on('webrtc_answer')
+def handle_webrtc_answer(data):
+
+    target_user_id = data.get(
+        'target_user_id'
+    )
+
+    user_id = data.get(
+        'user_id'
+    )
+
+    answer = data.get(
+        'answer'
+    )
+
+    if (
+        not target_user_id
+        or not user_id
+        or not answer
+    ):
+        return
+
+    target_user_id = str(
+        target_user_id
+    )
+
+    user_id = str(
+        user_id
+    )
+
+    socketio.emit(
+        'webrtc_answer',
+        {
+            'user_id': user_id,
+            'answer': answer
+        },
+        room=f'user_{target_user_id}'
+    )
+
+
+@socketio.on('webrtc_ice_candidate')
+def handle_webrtc_ice_candidate(data):
+
+    target_user_id = data.get(
+        'target_user_id'
+    )
+
+    user_id = data.get(
+        'user_id'
+    )
+
+    candidate = data.get(
+        'candidate'
+    )
+
+    if (
+        not target_user_id
+        or not user_id
+        or not candidate
+    ):
+        return
+
+    target_user_id = str(
+        target_user_id
+    )
+
+    user_id = str(
+        user_id
+    )
+
+    socketio.emit(
+        'webrtc_ice_candidate',
+        {
+            'user_id': user_id,
+            'candidate': candidate
+        },
+        room=f'user_{target_user_id}'
+    )

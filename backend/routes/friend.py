@@ -418,6 +418,7 @@ def get_conversations():
                     SELECT
                         sender_id,
                         content,
+                        file_name,
                         message_type
                     FROM messages
                     WHERE conversation_id = %s

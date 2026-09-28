@@ -8,6 +8,11 @@
     --desc-color:#5f6c80;
     --input-color:#f1f2f4;
     --hover-color:#f1f2f4;
+    --chatBody-color:#ebecf0;
+    --callBottom-color:#5a6981;
+    --message-color:#e5f1ff;
+    --status-layout:rgb(188 189 192);
+
 
     --primary-color:#346fc2;
     --primary-rgb:rgb(52, 111, 194194, 0.6);
@@ -15,6 +20,7 @@
     --dropdown-layout:rgb(14, 38, 79);
 
     --shadown-layout:rgba(0, 0, 0, 0.19) 0px 10px 20px, rgba(0, 0, 0, 0.23) 0px 6px 6px;
+    --shadown-message:rgba(0, 0, 0, 0.35) 0px 5px 15px;
 }
 
 .separate{
@@ -140,4 +146,37 @@
     color: var(--white-color);
 
     background: var(--primary-color);
+}
+
+.call_btn {
+    flex: 1;
+    height: 42px;
+
+    border: none;
+    border-radius: 8px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+
+    cursor: pointer;
+}
+
+.call_reject {
+    background: var(--desc-color);
+}
+
+
+.call_accept {
+    background: var(--primary-rgb);
+}
+
+
+.call_btn:hover {
+    opacity: 0.9;
 }

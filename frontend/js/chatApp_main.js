@@ -77,13 +77,48 @@ const imageInput = $('#imageInput')
 const fileBtn = $('#fileBtn')
 const fileInput = $('#fileInput')
 const voiceBtn = $('#voiceBtn')
+const callBtn = $('#btnCall')
+const callVideoBtn = $('#btnCallVideo')
+
+const callOverlay = $('.call_overlay')
+const callClose = $('.call_close')
+const callReject = $('.call_reject')
+const callWindow = $('.call_window')
+const callAccept = $('.call_accept')
+const callUserName = $('.call_window_name')
+const callAvatar = $('.call_window_avatar img')
+const callTitle = $('.call_title')
+const callBackground = $('.call_background img')
+
+const callMinimize = $('.call_minimize')
+const callMic = $('.call_mic')
+const callVideo = $('.call_video')
+const callEnd = $('.call_end')
 
 const chatApp = {
-
+    isCallPopupOpen: false,
+    isTyping: false,
+    typingTimeout: null,
     avatarFile: null,
     hasNotification: false,
     mediaRecorder: null,
     currentConversation: null,
+    isMicOn: true,
+    isVideoOn: false,
+
+    // CALL
+    callState: 'idle',
+    callUserId: null,
+    callTimer: null,
+    callStartTime: null,
+
+    // WEBRTC
+    peerConnection: null, // thiết lập và quản lý kết nối
+    localStream: null, // đường truyền thiết bị gần
+    remoteStream: null, // đường truyền thiết bị xa
+    remoteAudio: null,
+    pendingIceCandidates: [],
+
     socket: null,
     conversations: [],
     config: JSON.parse(localStorage.getItem(LOGIN_STORAGE_KEY)) || {},
@@ -104,6 +139,419 @@ const chatApp = {
         }
 
         return true
+    },
+
+    getCallUser: function (userId) {
+
+        return this.conversations.find(
+            conversation =>
+                String(conversation.user.id) ===
+                String(userId)
+        )?.user || null
+    },
+
+    setCallUserInfo: function (userId) {
+
+        const user = this.getCallUser(userId)
+
+        if (!user) {
+            return
+        }
+
+        callTitle.textContent =
+            user.username
+
+        callUserName.textContent =
+            user.username
+
+        let avatarSrc =
+            './assests/img/default_avt.png'
+
+        if (
+            user.avatar &&
+            user.avatar !== 'default_avt.png'
+        ) {
+            avatarSrc =
+                `${API_URL}${user.avatar}`
+        }
+
+        callAvatar.src =
+            avatarSrc
+
+        callBackground.src =
+            avatarSrc
+    },
+
+    // Web rtc 
+
+    formatCallDuration: function (seconds) {
+
+        seconds = Number(seconds) || 0
+
+        const hours =
+            Math.floor(seconds / 3600)
+
+        const minutes =
+            Math.floor(
+                (seconds % 3600) / 60
+            )
+
+        const secs =
+            seconds % 60
+
+        if (hours > 0) {
+
+            return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+
+        }
+
+        return `${minutes}:${String(secs).padStart(2, '0')}`
+    },
+
+    createPeerConnection: function () {
+
+        const configuration = {
+            iceServers: [
+                {
+                    urls: 'stun:stun.l.google.com:19302'
+                }
+            ]
+        }
+
+        this.peerConnection =
+            new RTCPeerConnection(
+                configuration
+            )
+
+        this.remoteStream = new MediaStream()
+
+        this.remoteAudio = new Audio()
+
+        this.remoteAudio.autoplay = true
+
+        this.remoteAudio.srcObject = this.remoteStream
+
+        console.log(
+            'Đã tạo RTCPeerConnection'
+        )
+
+        this.peerConnection.onicecandidate =
+            (event) => {
+
+                if (!event.candidate) {
+                    return
+                }
+
+                this.socket.emit(
+                    'webrtc_ice_candidate',
+                    {
+                        user_id:
+                            this.config.user.id,
+
+                        target_user_id:
+                            this.callUserId,
+
+                        candidate:
+                            event.candidate
+                    }
+                )
+            }
+
+        this.peerConnection.ontrack =
+            (event) => {
+
+                console.log(
+                    'Đã nhận audio từ người bên kia'
+                )
+
+                this.remoteStream.addTrack(
+                    event.track
+                )
+
+                this.remoteAudio
+                    .play()
+                    .catch(error => {
+                        if(error.name !== 'AbortError')
+                        console.error(
+                            'Không thể phát audio:',
+                            error
+                        )
+                    })
+            }
+
+        this.peerConnection.onconnectionstatechange =
+            () => {
+
+                const state =
+                    this.peerConnection.connectionState
+
+                console.log(
+                    'WebRTC connection state:',
+                    state
+                )
+
+                if (state === 'connected') {
+
+                    $('.call_window_status')
+                        .textContent =
+                        'Đã kết nối'
+
+                    console.log(
+                        'WebRTC đã kết nối thành công'
+                    )
+                }
+
+                if (state === 'failed') {
+
+                    $('.call_window_status')
+                        .textContent =
+                        'Kết nối thất bại'
+
+                    console.error(
+                        'WebRTC connection failed'
+                    )
+                }
+            }
+    },
+
+    getLocalStream: async function () {
+
+        try {
+
+            const stream =
+                await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                })
+
+            this.localStream = stream
+
+            console.log(
+                'Đã lấy được microphone'
+            )
+
+            return stream
+
+        } catch (error) {
+
+            if (error.name === 'NotFoundError') {
+
+                alert(
+                    'Không tìm thấy microphone. Vui lòng kiểm tra microphone hoặc kết nối tai nghe có mic.'
+                )
+
+            } else if (error.name === 'NotAllowedError') {
+
+                alert(
+                    'Bạn chưa cho phép trình duyệt sử dụng microphone.'
+                )
+
+            } else {
+
+                alert(
+                    'Không thể truy cập microphone.'
+                )
+            }
+
+            return null
+        }
+    },
+
+    addLocalTracks: function () {
+
+        if (
+            !this.peerConnection ||
+            !this.localStream
+        ) {
+            return
+        }
+
+        this.localStream
+            .getTracks()
+            .forEach(track => {
+
+                this.peerConnection.addTrack(
+                    track,
+                    this.localStream
+                )
+
+            })
+
+        console.log(
+            'Đã thêm microphone vào WebRTC'
+        )
+    },
+
+    createOffer: async function () {
+
+        if (!this.peerConnection) {
+            return
+        }
+
+        try {
+
+            const offer =
+                await this.peerConnection
+                    .createOffer()
+
+            await this.peerConnection
+                .setLocalDescription(offer)
+
+            console.log(
+                'Đã tạo WebRTC offer'
+            )
+
+            this.socket.emit(
+                'webrtc_offer',
+                {
+                    user_id:
+                        this.config.user.id,
+
+                    target_user_id:
+                        this.callUserId,
+
+                    offer: offer
+                }
+            )
+
+        } catch (error) {
+
+            console.error(
+                'Không thể tạo WebRTC offer:',
+                error
+            )
+        }
+    },
+
+    createAnswer: async function () {
+
+        if (!this.peerConnection) {
+            return
+        }
+
+        try {
+
+            const answer =
+                await this.peerConnection
+                    .createAnswer()
+
+            await this.peerConnection
+                .setLocalDescription(answer)
+
+            console.log(
+                'Đã tạo WebRTC answer'
+            )
+
+            this.socket.emit(
+                'webrtc_answer',
+                {
+                    user_id:
+                        this.config.user.id,
+
+                    target_user_id:
+                        this.callUserId,
+
+                    answer: answer
+                }
+            )
+
+        } catch (error) {
+
+            console.error(
+                'Không thể tạo WebRTC answer:',
+                error
+            )
+        }
+    },
+
+    handleIceCandidate: async function (candidate) {
+
+        if (!this.peerConnection) {
+            return
+        }
+
+        if (
+            !this.peerConnection.remoteDescription
+        ) {
+            this.pendingIceCandidates.push(
+                candidate
+            )
+
+            console.log(
+                'ICE candidate được lưu tạm'
+            )
+
+            return
+        }
+
+        try {
+
+            await this.peerConnection
+                .addIceCandidate(
+                    new RTCIceCandidate(candidate)
+                )
+
+            console.log(
+                'Đã thêm ICE candidate'
+            )
+
+        } catch (error) {
+
+            console.error(
+                'Không thể thêm ICE candidate:',
+                error
+            )
+        }
+    },
+
+    cleanupWebRTC: function () {
+
+        console.log(
+            'Đang dọn WebRTC...'
+        )
+
+        // Dừng microphone
+        if (this.localStream) {
+
+            this.localStream
+                .getTracks()
+                .forEach(track => {
+                    track.stop()
+                })
+
+            this.localStream = null
+        }
+
+        // Dừng remote audio
+        if (this.remoteAudio) {
+
+            this.remoteAudio.pause()
+
+            this.remoteAudio.srcObject = null
+
+            this.remoteAudio = null
+        }
+
+        // Xóa remote stream
+        this.remoteStream = null
+
+        // Đóng PeerConnection
+        if (this.peerConnection) {
+
+            this.peerConnection.close()
+
+            this.peerConnection = null
+        }
+
+        // Xóa ICE candidate cũ
+        this.pendingIceCandidates = []
+
+        console.log(
+            'Đã dọn WebRTC'
+        )
     },
 
     loadUser: function () {
@@ -154,6 +602,104 @@ const chatApp = {
     logout: function () {
         localStorage.removeItem(LOGIN_STORAGE_KEY)
         window.location.href = './login.html'
+    },
+
+    getCallMessage: function (message) {
+
+        const isMine =
+            String(message.sender_id) ===
+            String(this.config.user.id)
+
+        const callType =
+            'Cuộc gọi thoại'
+
+        switch (message.content) {
+
+            case 'accepted':
+
+                return {
+                    title: isMine
+                        ? 'Cuộc gọi đi'
+                        : 'Cuộc gọi đến',
+
+                    subText: callType,
+
+                    className: ''
+                }
+
+            case 'rejected':
+
+                return {
+                    title: isMine
+                        ? 'Người dùng từ chối'
+                        : 'Bạn đã từ chối',
+
+                    subText: callType,
+
+                    className: 'call_failed'
+                }
+
+            case 'cancelled':
+
+                return {
+                    title: isMine
+                        ? 'Bạn đã hủy'
+                        : 'Bạn bị nhỡ',
+
+                    subText: callType,
+
+                    className: 'call_failed'
+                }
+
+            case 'timeout':
+
+                return {
+                    title: isMine
+                        ? 'Cuộc gọi đi'
+                        : 'Bạn bị nhỡ',
+
+                    subText: callType,
+
+                    className: isMine
+                        ? ''
+                        : 'call_failed'
+                }
+
+            case 'ended':
+
+                return {
+                    title: isMine
+                        ? 'Bạn đã hủy'
+                        : 'Bạn bị nhỡ',
+
+                    subText: callType,
+
+                    className: 'call_failed'
+                }
+
+            default:
+
+                return {
+                    title: isMine
+                        ? 'Cuộc gọi đi'
+                        : 'Cuộc gọi đến',
+
+                    subText: callType,
+
+                    className: ''
+                }
+        }
+    },
+
+    getCallPreview: function (message) {
+
+        const isMine =
+            String(message.sender_id) ===
+            String(this.config.user.id)
+
+        return isMine
+            ? 'Bạn: 📞 Cuộc gọi đi'
+            : '📞 Cuộc gọi đến'
     },
 
     loadMessages: async function (conversationId) {
@@ -230,9 +776,10 @@ const chatApp = {
                         <div class="message_content">
 
                             ${message.message_type === 'image'
-                            ? `<img 
-                                    class="message_image" 
-                                    src="${message.content}" 
+                            ? `
+                                <img
+                                    class="message_image"
+                                    src="${message.content}"
                                     alt="Ảnh đã gửi"
                                 >`
                             : message.message_type === 'file'
@@ -248,7 +795,74 @@ const chatApp = {
                                             ${message.file_name}
                                         </span>
                                     </a>`
-                                : `<p>${message.content}</p>`
+                                : message.message_type === 'voice'
+                                    ? `
+                                        <div class="message_voice">
+                                            <button class="voice_play">
+                                                <i class="fa-solid fa-play"></i>
+                                            </button>
+
+                                            <input
+                                                type="range"
+                                                class="voice_progress"
+                                                min="0"
+                                                max="100"
+                                                value="0"
+                                                step="0.01"
+                                            >
+
+                                            <span class="voice_time">
+                                                0:00
+                                            </span>
+
+                                            <audio
+                                                class="voice_audio"
+                                                src="${message.content}"
+                                            ></audio>
+                                        </div>
+                                    `
+                                    : message.message_type === 'call'
+                                        ? (() => {
+
+                                            const callMessage =
+                                                this.getCallMessage(message)
+
+                                            return `
+                                                        <div class="message_call">
+
+                                                            <span class="message_call_title ${callMessage.className}">
+                                                                ${callMessage.title}
+                                                            </span>
+
+                                                            <div class="message_call_bottom">
+
+                                                                <i class="fa-solid fa-phone"></i>
+
+                                                                ${message.content === 'accepted'
+                                                    ? `
+                                                                            <span class="message_call_duration">
+                                                                                ${this.formatCallDuration(
+                                                        message.call_duration
+                                                    )}
+                                                                            </span>
+                                                                        `
+                                                    : `
+                                                                            <span class="message_call_type">
+                                                                                ${callMessage.subText}
+                                                                            </span>
+                                                                        `
+                                                }
+
+                                                            </div>
+
+                                                        </div>
+                                                    `
+                                        })()
+                                        : `
+                                            <p>
+                                                ${message.content}
+                                            </p>`
+
                         }
                         </div>
                         ${showStatus
@@ -298,6 +912,7 @@ const chatApp = {
                 })
 
             }
+            this.handleVoiceEvents()
 
         } catch (error) {
 
@@ -322,12 +937,26 @@ const chatApp = {
 
     appendMessage: function (message) {
 
+        const oldStatus =
+            chatBody.querySelectorAll('.message_status')
+
+        oldStatus.forEach(status => {
+            status.remove()
+        })
+
         const messageElement =
             document.createElement('div')
 
         const isMine =
             String(message.sender_id) ===
             String(this.config.user.id)
+
+        const messageStatus =
+            message.status === 'seen'
+                ? 'Đã xem'
+                : message.status === 'delivered'
+                    ? 'Đã nhận'
+                    : 'Đã gửi'
 
         messageElement.className =
             isMine
@@ -339,41 +968,90 @@ const chatApp = {
 
                 ${message.message_type === 'image'
                 ? `
-                            <img
-                                class="message_image"
-                                src="${message.content}"
-                                alt="Ảnh đã gửi"
-                            >
-                        `
+                    <img
+                        class="message_image"
+                        src="${message.content}"
+                        alt="Ảnh đã gửi"
+                    >
+                    `
                 : message.message_type === 'file'
                     ? `
-                                <a
-                                    class="message_file"
-                                    href="${message.content}"
-                                    target="_blank"
-                                    download="${message.file_name}"
-                                >
-                                    <i class="fa-regular fa-file"></i>
+                        <a
+                            class="message_file"
+                            href="${message.content}"
+                            target="_blank"
+                            download="${message.file_name}"
+                        >
+                            <i class="fa-regular fa-file"></i>
 
-                                    <span>
-                                        ${message.file_name}
+                            <span>
+                                ${message.file_name}
+                            </span>
+                        </a>
+                    `
+                    : message.message_type === 'voice'
+                        ? `
+                            <div class="message_voice">
+                                <button class="voice_play">
+                                    <i class="fa-solid fa-play"></i>
+                                </button>
+
+                                <input
+                                    type="range"
+                                    class="voice_progress"
+                                    min="0"
+                                    max="100"
+                                    value="0"
+                                    step="0.01"
+                                >
+
+                                <span class="voice_time">
+                                    0:00
+                                </span>
+
+                                <audio
+                                    class="voice_audio"
+                                    src="${message.content}"
+                                ></audio>
+                            </div>
+                        `
+                        : message.message_type === 'call' ? (() => {
+                            const callMessage =
+                                this.getCallMessage(message)
+
+                            return `
+                                <div class="message_call">
+                                    <span class="message_call_title ${callMessage.className}">
+                                        ${callMessage.title}
                                     </span>
-                                </a>
+                                    <div class="message_call_bottom">
+                                        <i class="fa-solid fa-phone"></i>
+                                        ${message.content === 'accepted' ? `
+                                                <span class="message_call_duration">
+                                                    ${this.formatCallDuration(
+                                message.call_duration
+                            )}
+                                                </span>
+                                            `: `
+                                                <span class="message_call_type">
+                                                    ${callMessage.subText}
+                                                </span>
+                                            `
+                                }
+                                    </div>
+                                </div>
+
                             `
-                    : `
-                                <p>
-                                    ${message.content}
-                                </p>
-                            `
+                        })() : `<p>${message.content}</p>`
             }
 
             </div>
 
             ${isMine
                 ? `
-                        <span class="message_status">
-                            Đã gửi
-                        </span>
+                    <span class="message_status">
+                        ${messageStatus}
+                    </span>
                     `
                 : ''
             }
@@ -384,6 +1062,171 @@ const chatApp = {
         messageElement.scrollIntoView({
             behavior: 'smooth',
             block: 'end'
+        })
+
+        this.handleVoiceEvents()
+    },
+
+    handleVoiceEvents: function () {
+
+        const voiceList =
+            document.querySelectorAll('.message_voice')
+
+
+        voiceList.forEach(voice => {
+
+            const playBtn =
+                voice.querySelector('.voice_play')
+
+            const audio =
+                voice.querySelector('.voice_audio')
+
+            const progress =
+                voice.querySelector('.voice_progress')
+
+            const time =
+                voice.querySelector('.voice_time')
+
+
+            // Khi audio load xong
+            audio.onloadedmetadata = () => {
+
+                progress.max =
+                    audio.duration
+
+                progress.value =
+                    0
+
+
+                const minutes =
+                    Math.floor(audio.duration / 60)
+
+                const seconds =
+                    Math.floor(audio.duration % 60)
+                        .toString()
+                        .padStart(2, '0')
+
+                time.textContent =
+                    `${minutes}:${seconds}`
+            }
+
+
+            // Play / Pause
+            playBtn.onclick = () => {
+
+                if (audio.paused) {
+
+                    // Dừng những voice khác
+                    voiceList.forEach(otherVoice => {
+
+                        const otherAudio =
+                            otherVoice.querySelector(
+                                '.voice_audio'
+                            )
+
+                        const otherPlayBtn =
+                            otherVoice.querySelector(
+                                '.voice_play'
+                            )
+
+                        if (
+                            otherAudio !== audio &&
+                            !otherAudio.paused
+                        ) {
+
+                            otherAudio.pause()
+
+                            otherPlayBtn.innerHTML =
+                                '<i class="fa-solid fa-play"></i>'
+                        }
+                    })
+
+
+                    audio.play()
+
+                    playBtn.innerHTML =
+                        '<i class="fa-solid fa-pause"></i>'
+
+                } else {
+
+                    audio.pause()
+
+                    playBtn.innerHTML =
+                        '<i class="fa-solid fa-play"></i>'
+                }
+            }
+
+
+            // Audio đang chạy
+            audio.ontimeupdate = () => {
+
+                if (!audio.duration) {
+                    return
+                }
+
+
+                // Đồng bộ thanh range
+                progress.value =
+                    audio.currentTime
+
+
+                // Đồng bộ thời gian
+                const minutes =
+                    Math.floor(audio.currentTime / 60)
+
+                const seconds =
+                    Math.floor(audio.currentTime % 60)
+                        .toString()
+                        .padStart(2, '0')
+
+                time.textContent =
+                    `${minutes}:${seconds}`
+            }
+
+
+            // Kéo / click input range
+            progress.oninput = () => {
+
+                audio.currentTime =
+                    Number(progress.value)
+
+
+                const minutes =
+                    Math.floor(audio.currentTime / 60)
+
+                const seconds =
+                    Math.floor(audio.currentTime % 60)
+                        .toString()
+                        .padStart(2, '0')
+
+                time.textContent =
+                    `${minutes}:${seconds}`
+            }
+
+
+            // Phát xong
+            audio.onended = () => {
+
+                playBtn.innerHTML =
+                    '<i class="fa-solid fa-play"></i>'
+
+
+                progress.value =
+                    0
+
+
+                const minutes =
+                    Math.floor(audio.duration / 60)
+
+                const seconds =
+                    Math.floor(audio.duration % 60)
+                        .toString()
+                        .padStart(2, '0')
+
+                time.textContent =
+                    `${minutes}:${seconds}`
+            }
+
         })
     },
 
@@ -555,11 +1398,6 @@ const chatApp = {
             const result = await response.json()
 
             console.log('conversations:', result)
-
-            // const result = await response.json()
-            // if (!result.success) {
-            //     return
-            // }
             this.conversations = result.conversations
             if (result.conversations.length === 0) {
 
@@ -584,16 +1422,37 @@ const chatApp = {
                             String(conversation.last_message.sender_id) ===
                             String(this.config.user.id)
 
-                        const isImage =
-                            conversation.last_message.message_type === 'image'
+                        const messageType =
+                            conversation.last_message.message_type
 
-                        if (isImage) {
+                        if (messageType === 'image') {
                             messagePreview =
                                 isMine
                                     ? 'Bạn: Hình ảnh'
                                     : 'Hình ảnh'
 
-                        } else {
+                        } else if (messageType === 'file') {
+
+                            messagePreview =
+                                isMine
+                                    ? `Bạn: 📎 ${conversation.last_message.file_name}`
+                                    : `📎 ${conversation.last_message.file_name}`
+
+                        } else if (messageType === 'voice') {
+
+                            messagePreview =
+                                isMine
+                                    ? 'Bạn: 🎤 Tin nhắn thoại'
+                                    : '🎤 Tin nhắn thoại'
+
+                        } else if (messageType === 'call') {
+
+                            messagePreview =
+                                this.getCallPreview(
+                                    conversation.last_message
+                                )
+                        }
+                        else {
                             messagePreview =
                                 isMine
                                     ? `Bạn: ${conversation.last_message.content}`
@@ -662,10 +1521,39 @@ const chatApp = {
             String(message.sender_id) ===
             String(this.config.user.id)
 
-        messagePreview.textContent =
-            isMine
-                ? `Bạn: ${message.content}`
-                : message.content
+        if (message.message_type === 'image') {
+
+            messagePreview.textContent =
+                isMine
+                    ? 'Bạn: Hình ảnh'
+                    : 'Hình ảnh'
+
+        } else if (message.message_type === 'file') {
+
+            messagePreview.textContent =
+                isMine
+                    ? `Bạn: 📎 ${message.file_name}`
+                    : `📎 ${message.file_name}`
+
+        } else if (message.message_type === 'voice') {
+
+            messagePreview.textContent =
+                isMine
+                    ? 'Bạn: 🎤 Tin nhắn thoại'
+                    : '🎤 Tin nhắn thoại'
+
+        } else if (message.message_type === 'call') {
+
+            messagePreview.textContent =
+                this.getCallPreview(message)
+
+        } else {
+
+            messagePreview.textContent =
+                isMine
+                    ? `Bạn: ${message.content}`
+                    : message.content
+        }
 
         conversationList.prepend(
             conversationItem
@@ -770,6 +1658,187 @@ const chatApp = {
 
             reader.readAsDataURL(image)
         })
+    },
+
+    openCallPopup: function () {
+        callOverlay.style.display = 'flex'
+        this.isCallPopupOpen = true
+    },
+
+    closeCallPopup: function () {
+        callOverlay.style.display = 'none'
+        this.isCallPopupOpen = false
+    },
+
+    endCall: function () {
+        if (this.callUserId) {
+            this.socket.emit(
+                'call_end',
+                {
+                    user_id: this.config.user.id
+                }
+            )
+        }
+        this.stopCallTimer()
+        this.callState = 'idle'
+        this.callUserId = null
+        this.isMicOn = true
+        this.isVideoOn = false
+
+        callOverlay.style.display = 'none'
+        callWindow.style.display = 'none'
+
+        callMic.innerHTML =
+            '<i class="fa-solid fa-microphone"></i>'
+
+        callMic.classList.remove('off')
+
+        callVideo.innerHTML =
+            '<i class="fa-solid fa-video-slash"></i>'
+
+        callVideo.classList.remove('off')
+
+        callWindow.classList.remove('minimized')
+
+
+        callAccept.style.display = 'flex'
+        callReject.style.display = 'flex'
+
+        callReject.innerHTML = `
+        <i class="fa-solid fa-phone-slash"></i>
+        <span>Từ chối</span>
+    `
+    },
+
+    startCallTimer: function () {
+
+        this.callStartTime =
+            Date.now()
+
+        this.callTimer =
+            setInterval(() => {
+
+                const elapsed =
+                    Math.floor(
+                        (Date.now() - this.callStartTime) / 1000
+                    )
+
+                const minutes =
+                    Math.floor(elapsed / 60)
+
+                const seconds =
+                    (elapsed % 60)
+                        .toString()
+                        .padStart(2, '0')
+
+                const duration =
+                    $('.call_duration')
+
+                if (duration) {
+
+                    duration.textContent =
+                        `${minutes}:${seconds}`
+                }
+
+            }, 1000)
+    },
+
+    stopCallTimer: function () {
+
+        clearInterval(
+            this.callTimer
+        )
+
+        this.callTimer = null
+
+        this.callStartTime = null
+    },
+
+    callUser: function (userId) {
+
+        if (this.callState !== 'idle') {
+            return
+        }
+
+        this.callState = 'calling'
+        this.callUserId = userId
+        this.setCallUserInfo(userId)
+        this.openCallPopup()
+
+        // Thông tin popup
+        $('.call_status').textContent = 'Đang gọi...'
+
+        // Người gọi không cần nút chấp nhận
+        callAccept.style.display = 'none'
+
+        // Đổi nút từ chối thành nút kết thúc
+        callReject.style.display = 'flex'
+        callReject.innerHTML = `
+        <i class="fa-solid fa-phone"></i>
+        <span>Kết thúc</span>
+    `
+
+        this.socket.emit('call_request', {
+            caller_id: this.config.user.id,
+            receiver_id: userId
+        }
+        )
+    },
+
+    showIncomingCall: function (callerId) {
+
+        this.callState = 'ringing'
+        this.callUserId = callerId
+        this.setCallUserInfo(callerId)
+        callOverlay.style.display = 'flex'
+
+        $('.call_status').textContent = 'Cuộc gọi đến...'
+
+        callReject.style.display = 'flex'
+        callAccept.style.display = 'flex'
+
+        callReject.innerHTML = `
+        <i class="fa-solid fa-phone-slash"></i>
+        <span>Từ chối</span>
+    `
+    },
+
+    openActiveCallWindow: async function (userId) {
+
+        this.setCallUserInfo(userId)
+
+        this.callState = 'active'
+
+        callOverlay.style.display = 'none'
+
+        callWindow.style.display = 'flex'
+
+        callWindow.classList.remove(
+            'minimized'
+        )
+
+        $('.call_status').textContent =
+            'Đang kết nối...'
+
+        callAccept.style.display = 'none'
+
+        callReject.style.display = 'flex'
+
+        callReject.innerHTML = `
+        <i class="fa-solid fa-phone"></i>
+        <span>Kết thúc</span>
+    `
+        // WWeb rtc
+
+        this.createPeerConnection()
+        const stream =
+            await this.getLocalStream()
+        if (!stream) {
+            this.endCall()
+            return
+        }
+        this.addLocalTracks()
+        this.startCallTimer()
     },
 
     handleEvent: function () {
@@ -1423,6 +2492,14 @@ const chatApp = {
                 return
             }
 
+            const oldStatus =
+                chatBody.querySelectorAll('.message_status')
+
+            oldStatus.forEach(status => {
+                status.remove()
+            })
+
+
             try {
 
                 const compressedImage =
@@ -1548,6 +2625,14 @@ const chatApp = {
             if (!file) {
                 return
             }
+
+            const oldStatus =
+                chatBody.querySelectorAll('.message_status')
+
+            oldStatus.forEach(status => {
+                status.remove()
+            })
+
 
             const maxSize =
                 60 * 1024 * 1024
@@ -1679,6 +2764,338 @@ const chatApp = {
                     .textContent = 'Gửi thất bại'
 
             }
+        }
+
+        // ==================== VOICE MESSAGE ====================
+
+        voiceBtn.onclick = async () => {
+
+            if (!this.currentConversation) {
+                return
+            }
+
+            if (!this.isRecording) {
+
+                try {
+
+                    const stream =
+                        await navigator.mediaDevices.getUserMedia({
+                            audio: true
+                        })
+
+                    this.audioChunks = []
+
+                    this.mediaRecorder =
+                        new MediaRecorder(stream)
+
+                    this.mediaRecorder.ondataavailable =
+                        (event) => {
+
+                            if (event.data.size > 0) {
+                                this.audioChunks.push(
+                                    event.data
+                                )
+                            }
+                        }
+
+                    this.mediaRecorder.onstop = async () => {
+
+                        stream
+                            .getTracks()
+                            .forEach(track => track.stop())
+
+                        console.log(
+                            'Đã dừng ghi âm'
+                        )
+
+                        // Tạo file audio từ dữ liệu đã ghi
+                        const audioBlob = new Blob(
+                            this.audioChunks,
+                            {
+                                type: 'audio/webm'
+                            }
+                        )
+
+                        // Tạo tên file
+                        const audioFile = new File(
+                            [audioBlob],
+                            `voice_${Date.now()}.webm`,
+                            {
+                                type: 'audio/webm'
+                            }
+                        )
+
+                        console.log(
+                            'File voice:',
+                            audioFile
+                        )
+
+                        try {
+
+                            const formData = new FormData()
+
+                            formData.append(
+                                'conversation_id',
+                                this.currentConversation.conversation_id
+                            )
+
+                            formData.append(
+                                'sender_id',
+                                this.config.user.id
+                            )
+
+                            formData.append(
+                                'voice',
+                                audioFile
+                            )
+
+                            console.log(
+                                'Đang upload voice...'
+                            )
+
+                            const response = await fetch(
+                                `${API_URL}/api/messages`,
+                                {
+                                    method: 'POST',
+                                    body: formData
+                                }
+                            )
+
+                            const result =
+                                await response.json()
+
+                            if (!result.success) {
+
+                                console.error(
+                                    'Gửi voice thất bại:',
+                                    result.message
+                                )
+
+                                return
+                            }
+
+                            // console.log(
+                            //     'Upload voice thành công:',
+                            //     result.message
+                            // )
+
+                            // Hiển thị voice ngay lập tức
+                            await this.loadMessages(
+                                this.currentConversation.conversation_id
+                            )
+
+                            await this.loadConversations()
+
+                        } catch (error) {
+
+                            console.error(
+                                'Lỗi gửi voice:',
+                                error
+                            )
+                        }
+                    }
+
+                    this.mediaRecorder.start()
+
+                    this.isRecording = true
+
+                    voiceBtn.innerHTML =
+                        '<i class="fa-solid fa-stop"></i>'
+
+                    console.log(
+                        'Đang ghi âm...'
+                    )
+
+                } catch (error) {
+
+                    console.error(
+                        'Không thể sử dụng microphone:',
+                        error
+                    )
+
+                }
+
+            } else {
+
+                this.mediaRecorder.stop()
+
+                this.isRecording = false
+
+                voiceBtn.innerHTML =
+                    '<i class="fa-solid fa-microphone"></i>'
+            }
+        }
+
+        messageInput.addEventListener('input', () => {
+            if (
+                !this.currentConversation ||
+                !this.socket
+            ) {
+                return
+            }
+
+            const conversationId =
+                this.currentConversation.conversation_id
+
+            if (!this.isTyping) {
+
+                this.isTyping = true
+
+                this.socket.emit(
+                    'typing',
+                    {
+                        conversation_id:
+                            conversationId,
+
+                        user_id:
+                            this.config.user.id
+                    }
+                )
+            }
+
+            clearTimeout(
+                this.typingTimeout
+            )
+
+            this.typingTimeout =
+                setTimeout(() => {
+                    this.isTyping = false
+                    this.socket.emit(
+                        'stop_typing',
+                        {
+                            conversation_id:
+                                conversationId,
+
+                            user_id:
+                                this.config.user.id
+                        }
+                    )
+
+                }, 1000)
+        }
+        )
+        // ============================== call popup ==============
+
+        callBtn.onclick = () => {
+
+            if (!this.currentConversation) {
+                return
+            }
+
+            this.callUser(
+                this.currentConversation.user.id
+            )
+        }
+
+        callClose.onclick = () => {
+            // Người gọi bấm X → kết thúc cuộc gọi
+            if (this.callState === 'calling') {
+                this.endCall()
+                return
+            }
+            // Người nhận bấm X → từ chối
+            if (this.callState === 'ringing') {
+                this.socket.emit(
+                    'call_reject',
+                    {
+                        caller_id: this.callUserId,
+                        receiver_id: this.config.user.id
+                    }
+                )
+            }
+        }
+
+        callReject.onclick = () => {
+
+            if (this.callState === 'calling') {
+                this.endCall()
+                return
+            }
+
+            if (this.callState === 'ringing') {
+                this.socket.emit(
+                    'call_reject',
+                    {
+                        caller_id: this.callUserId,
+                        receiver_id: this.config.user.id
+                    }
+                )
+            }
+        }
+
+        // ===================== CALL & CALL video ================
+
+        callMinimize.onclick = () => {
+
+            callWindow.classList.toggle(
+                'minimized'
+            )
+        }
+
+        callMic.onclick = () => {
+
+            this.isMicOn =
+                !this.isMicOn
+
+            if (this.localStream) {
+
+                this.localStream
+                    .getAudioTracks()
+                    .forEach(track => {
+                        track.enabled = this.isMicOn
+                    }
+                )
+            }
+
+            callMic.innerHTML =this.isMicOn
+                    ? '<i class="fa-solid fa-microphone"></i>'
+                    : '<i class="fa-solid fa-microphone-slash"></i>'
+
+            callMic.classList.toggle('off',!this.isMicOn
+            )
+
+            callMic.title = this.isMicOn
+                    ? 'Tắt microphone'
+                    : 'Bật microphone'
+        }
+
+        callVideo.onclick = () => {
+
+            this.isVideoOn =
+                !this.isVideoOn
+
+            callVideo.innerHTML =
+                this.isVideoOn
+                    ? '<i class="fa-solid fa-video"></i>'
+                    : '<i class="fa-solid fa-video-slash"></i>'
+
+            callVideo.classList.toggle(
+                'off',
+                !this.isVideoOn
+            )
+        }
+
+        callEnd.onclick = () => {
+            this.endCall()
+        }
+
+        callAccept.onclick = async () => {
+
+            if (this.callState !== 'ringing') {
+                return
+            }
+
+            this.socket.emit(
+                'call_accept',
+                {
+                    caller_id: this.callUserId,
+                    receiver_id: this.config.user.id
+                }
+            )
+
+            await this.openActiveCallWindow(
+                this.callUserId
+            )
         }
     },
 
@@ -1859,6 +3276,7 @@ const chatApp = {
                     : 'Đang ngoại tuyến'
         })
 
+
         this.socket.on('new_message', async (message) => {
 
             console.log(
@@ -1940,6 +3358,224 @@ const chatApp = {
             )
 
         })
+
+        // CALL 
+
+        this.socket.on('incoming_call', (data) => {
+            this.showIncomingCall(data.caller_id)
+        }
+        )
+
+        this.socket.on('call_rejected', () => {
+
+            this.stopCallTimer()
+
+            this.callState = 'idle'
+            this.callUserId = null
+
+            callOverlay.style.display = 'none'
+            callWindow.style.display = 'none'
+
+            callWindow.classList.remove(
+                'minimized'
+            )
+
+            callAccept.style.display = 'flex'
+            callReject.style.display = 'flex'
+
+            callReject.innerHTML = `
+        <i class="fa-solid fa-phone-slash"></i>
+        <span>Từ chối</span>
+    `
+        })
+
+        this.socket.on('call_accepted', async (data) => {
+
+            await this.openActiveCallWindow(data.user_id)
+            await this.createOffer()
+
+        })
+
+        this.socket.on('call_cancelled', async () => {
+            this.cleanupWebRTC()
+            this.stopCallTimer()
+
+            this.callState = 'idle'
+            this.callUserId = null
+
+            this.closeCallPopup()
+
+            callWindow.style.display = 'none'
+            callWindow.classList.remove('minimized')
+
+            callAccept.style.display = 'flex'
+            callReject.style.display = 'flex'
+
+            callReject.innerHTML = `
+        <i class="fa-solid fa-phone-slash"></i>
+        <span>Từ chối</span>
+    `
+
+            await this.loadConversations()
+
+            if (this.currentConversation) {
+
+                await this.loadMessages(
+                    this.currentConversation.conversation_id
+                )
+            }
+        })
+
+        this.socket.on('call_timeout', async () => {
+            this.cleanupWebRTC()
+            this.stopCallTimer()
+
+            this.callState = 'idle'
+            this.callUserId = null
+
+            this.closeCallPopup()
+
+            callWindow.style.display = 'none'
+            callWindow.classList.remove('minimized')
+
+            callAccept.style.display = 'flex'
+            callReject.style.display = 'flex'
+
+            callReject.innerHTML = `
+        <i class="fa-solid fa-phone-slash"></i>
+        <span>Từ chối</span>
+    `
+
+            await this.loadConversations()
+
+            if (this.currentConversation) {
+
+                await this.loadMessages(
+                    this.currentConversation.conversation_id
+                )
+            }
+        })
+
+        this.socket.on('call_busy', (data) => {
+
+            console.log(
+                data.message
+            )
+
+            this.stopCallTimer()
+
+            this.callState = 'idle'
+            this.callUserId = null
+
+            this.closeCallPopup()
+
+            callWindow.style.display = 'none'
+            callWindow.classList.remove('minimized')
+
+        })
+
+        this.socket.on('call_ended', () => {
+            this.cleanupWebRTC()
+            this.stopCallTimer()
+
+            this.callState = 'idle'
+            this.callUserId = null
+
+            // Đóng popup cuộc gọi
+            callOverlay.style.display = 'none'
+
+            // Đóng cửa sổ cuộc gọi
+            callWindow.style.display = 'none'
+            callWindow.classList.remove('minimized')
+
+            // Reset nút popup
+            callAccept.style.display = 'flex'
+            callReject.style.display = 'flex'
+
+            callReject.innerHTML = `
+        <i class="fa-solid fa-phone-slash"></i>
+        <span>Từ chối</span>
+    `
+        })
+
+        this.socket.on('webrtc_offer', async (data) => {
+            if (!this.peerConnection) {
+                return
+            }
+
+            try {
+
+                await this.peerConnection
+                    .setRemoteDescription(
+                        new RTCSessionDescription(
+                            data.offer
+                        )
+                    )
+
+                console.log(
+                    'Đã nhận WebRTC offer'
+                )
+
+                for (
+                    const candidate
+                    of this.pendingIceCandidates
+                ) {
+
+                    await this.handleIceCandidate(
+                        candidate
+                    )
+                }
+
+                this.pendingIceCandidates = []
+
+                await this.createAnswer()
+
+            } catch (error) {
+
+                console.error(
+                    'Không thể xử lý WebRTC offer:',
+                    error
+                )
+            }
+        }
+        )
+
+        this.socket.on('webrtc_answer', async (data) => {
+
+            if (!this.peerConnection) {
+                return
+            }
+
+            try {
+
+                await this.peerConnection
+                    .setRemoteDescription(
+                        new RTCSessionDescription(
+                            data.answer
+                        )
+                    )
+
+                console.log(
+                    'Đã nhận WebRTC answer'
+                )
+
+            } catch (error) {
+
+                console.error(
+                    'Không thể xử lý WebRTC answer:',
+                    error
+                )
+            }
+        }
+        )
+
+        this.socket.on('webrtc_ice_candidate', async (data) => {
+
+            await this.handleIceCandidate(
+                data.candidate
+            )
+        }
+        )
 
         if (!this.checkLogin()) {
             return

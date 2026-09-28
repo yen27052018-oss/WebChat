@@ -1,5 +1,7 @@
 from flask import Blueprint, request, jsonify
 from backend.database import get_db
+from backend.extensions import socketio
+from backend.socket.chatSocket import online_users
 
 import os
 import uuid
@@ -7,7 +9,7 @@ import uuid
 from werkzeug.utils import secure_filename
 
 import cloudinary.uploader
-# import cloudinary.utils
+import cloudinary.utils
 import backend.cloudinary_config
 
 message_bp = Blueprint( 'message',__name__)
@@ -65,6 +67,7 @@ def get_messages():
                 m.content,
                 m.file_name,
                 m.message_type,
+                m.call_duration,
                 m.status,
                 m.created_at,
                 m.seen_at
@@ -194,8 +197,6 @@ def mark_messages_seen():
         cursor.close()
         db.close()
         
-
-        
 @message_bp.route('/api/messages', methods=['POST'])
 def send_message():
 
@@ -249,14 +250,15 @@ def send_message():
                 public_id=unique_name
             )
 
-            content = result['secure_url']
             download_url = cloudinary.utils.cloudinary_url(
-                unique_name,
+                f'chat-watch-files/{unique_name}',
                 resource_type='raw',
                 type='upload',
                 secure=True,
                 flags=f'attachment:{file_name}'
             )[0]
+
+            content = download_url
             message_type = 'file'
 
         except Exception as error:
@@ -342,6 +344,38 @@ def send_message():
                 'success': False,
                 'message': 'Bạn không thuộc cuộc trò chuyện này'
             }), 403
+            
+        # Lấy người nhận
+        cursor.execute(
+            '''
+            SELECT user_id
+            FROM conversation_members
+            WHERE conversation_id = %s
+                AND user_id != %s
+            LIMIT 1
+            ''',
+            (
+                conversation_id,
+                sender_id
+            )
+        )
+
+        receiver = cursor.fetchone()
+
+        if not receiver:
+            return jsonify({
+                'success': False,
+                'message': 'Không tìm thấy người nhận'
+            }), 400
+
+        receiver_id = receiver['user_id']
+
+        # Xác định trạng thái tin nhắn
+        status = (
+            'delivered'
+            if str(receiver_id) in online_users
+            else 'sent'
+        )
 
         # Thêm tin nhắn
         cursor.execute(
@@ -360,7 +394,7 @@ def send_message():
                 %s,
                 %s,
                 %s,
-                'sent'
+                %s
             )
             ''',
             (
@@ -368,7 +402,8 @@ def send_message():
                 sender_id,
                 content,
                 file_name,
-                message_type
+                message_type,
+                status
             )
         )
 
@@ -419,6 +454,34 @@ def send_message():
                     '%Y-%m-%d %H:%M:%S'
                 )
 
+        # Lấy người nhận
+        cursor.execute(
+            '''
+            SELECT user_id
+            FROM conversation_members
+            WHERE conversation_id = %s
+                AND user_id != %s
+            LIMIT 1
+            ''',
+            (
+                conversation_id,
+                sender_id
+            )
+        )
+
+        receiver = cursor.fetchone()
+
+        if receiver:
+
+            receiver_id = receiver['user_id']
+
+            # Gửi tin nhắn realtime cho người nhận
+            socketio.emit(
+                'new_message',
+                message,
+                room=f'user_{receiver_id}'
+            )
+        
         return jsonify({
             'success': True,
             'message': message

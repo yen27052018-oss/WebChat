@@ -1084,7 +1084,7 @@ body {
     flex-direction: column;
 
     gap: 15px;
-    background-color: var(--input-color);
+    background-color: var(--chatBody-color);
 }
 
 
@@ -1115,10 +1115,13 @@ body {
 }
 
 .message_status {
-    font-size: 11px;
-    color: var(--desc-color);
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--white-color);
     align-self: flex-end;
-    padding:3px 7px 0 0;
+    padding:5px;
+    background: var(--status-layout);
+    border-radius: 1rem;
 }
 
 
@@ -1126,6 +1129,10 @@ body {
     justify-content: flex-start;
 }
 
+.received .message_content {
+    background-color: var(--white-color); 
+    color:var(--black-color);
+}
 
 .message.sent {
     justify-content: flex-end;
@@ -1136,16 +1143,113 @@ body {
 
 .message_content{
     padding: 10px;
-    background: var(--primary-rgb);
+    background: var(--message-color);
+    color:var(--black-color);
     border-radius: 10px;
     font-size: 13px;
     line-height: 20px;
     max-width: 700px;
+    box-shadow: var(--shadown-message);
 }
 
 .message_content:has(.message_image) {
     padding: 0;
     overflow: hidden;
+}
+
+.message_content:has(.message_file){
+    padding:0;
+}
+
+.message_content:has(.message_voice){
+    padding:0;
+    background: transparent;
+}
+
+.message_voice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    width: 230px;
+    height: 42px;
+    background: var(--message-color);
+
+    padding:10px;
+    border-radius: 10px;
+}
+
+/* Nút play */
+.voice_play {
+    width: 36px;
+    height: 36px;
+
+    border: none;
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    cursor: pointer;
+    background: var(--primary-color);
+    color:var(--white-color);
+}
+
+
+/* Thanh tiến trình */
+.voice_progress {
+    flex: 1;
+
+    width: calc(100% + 14px);
+    min-width: 0;
+    height: 5px;
+
+    margin: 0;
+    padding: 0;
+
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+
+    background: transparent;
+
+    border-radius: 5px;
+
+    cursor: pointer;
+}
+
+.voice_progress::-webkit-slider-runnable-track {
+    height: 5px;
+
+    background: var(--white-color);
+
+    border-radius: 5px;
+}
+
+.voice_progress::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+
+    width: 14px;
+    height: 14px;
+
+    margin-top: -4.5px;
+
+    background: var(--primary-color);
+
+    border: none;
+    border-radius: 50%;
+
+    cursor: pointer;
+}
+
+/* Thời gian */
+.voice_time {
+    min-width: 32px;
+
+    font-size: 12px;
+    white-space: nowrap;
 }
 
 /* avatar người gửi */
@@ -1171,7 +1275,7 @@ body {
 .chat_footer {
     min-height: 70px;
 
-    padding: 10px 20px;
+    padding: 6px 20px;
 
     display: flex;
     flex-direction: column;
@@ -1788,3 +1892,366 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* =========================
+   INCOMING CALL
+========================= */
+
+.call_overlay {
+    position: fixed;
+
+    inset: 0;
+
+    display: none;
+    align-items: center;
+    justify-content: center;
+
+    background: rgba(0, 0, 0, 0.35);
+
+    z-index: 9999;
+}
+
+
+.call_popup {
+    position: relative;
+    width: 330px;
+    padding: 30px 25px 25px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow:var(--shadown-layout);
+
+    text-align: center;
+}
+
+
+.call_close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+
+    width: 32px;
+    height: 32px;
+
+    border: none;
+    background: transparent;
+    border-radius: 50%;
+    font-size: 18px;
+
+    color: var(--primary-rgb);
+    cursor: pointer;
+}
+
+
+.call_close:hover {
+    background: var(--primary-rgb);
+
+    color: var(--white-color);
+}
+
+
+/* Avatar */
+
+.call_avatar {
+    width: 80px;
+    height: 80px;
+
+    margin: 10px auto 15px;
+
+    border-radius: 50%;
+
+    overflow: hidden;
+}
+
+
+.call_avatar img {
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+}
+
+
+/* Caller */
+
+.call_name {
+    margin: 0;
+
+    font-size: 18px;
+
+    font-weight: 600;
+
+    color: #222;
+}
+
+
+.call_status {
+    margin: 6px 0 25px;
+
+    font-size: 14px;
+
+    color: #777;
+}
+
+
+/* Buttons */
+
+.call_actions {
+    display: flex;
+    gap: 12px;
+}
+
+.call_window {
+    position: fixed;
+
+    right: 30px;
+    bottom: 30px;
+
+    width: 360px;
+    height: 500px;
+
+    border-radius: 18px;
+
+    overflow: hidden;
+
+    background: #111;
+
+    box-shadow:
+        0 15px 40px rgba(0, 0, 0, .3);
+
+    z-index: 10000;
+
+    color: #fff;
+    display: none;
+}
+
+.call_background {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+
+.call_background img {
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+
+    filter:
+        blur(18px)
+        brightness(.45);
+    transform: scale(1.15);
+}
+
+.call_window::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, .35),
+            rgba(0, 0, 0, .15),
+            rgba(0, 0, 0, .55)
+        );
+    z-index: 1;
+    pointer-events: none;
+}
+
+.call_content {
+    position: relative;
+
+    z-index: 2;
+
+    width: 100%;
+    height: 100%;
+}
+
+.call_header {
+    height: 55px;
+    padding: 0 15px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.call_title {
+    font-size: 15px;
+    font-weight: 500;
+    color: #fff;
+}
+
+.call_window_actions {
+    display: flex;
+    gap: 5px;
+}
+
+.call_window_actions button {
+    width: 32px;
+    height: 32px;
+
+    border: none;
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: rgba(255, 255, 255, .15);
+    color: #fff;
+    cursor: pointer;
+    transition: .2s;
+}
+
+.call_window_actions button:hover {
+    background: rgba(255, 255, 255, .3);
+}
+
+.call_user {
+    height: calc(100% - 135px);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.call_window_avatar {
+    width: 105px;
+    height: 105px;
+
+    border-radius: 50%;
+
+    overflow: hidden;
+
+    box-shadow:
+        0 5px 25px rgba(0, 0, 0, .4);
+
+    margin-bottom: 18px;
+}
+
+.call_window_avatar img {
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+}
+
+.call_window_name {
+    margin: 0;
+
+    font-size: 21px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.call_window_status {
+    margin: 15px 0;
+
+    font-size: 18px;
+    color: rgba(255, 255, 255, .8);
+}
+
+.call_duration {
+    font-size: 16px;
+
+    color: rgba(255, 255, 255, .7);
+}
+
+.call_controls {
+    height: 80px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+
+}
+
+.call_control{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: var(--primary-rgb);
+    border-radius: 99px;
+    height: 38px;
+    width: 38px;
+}
+
+.call_control:hover {
+    transform: scale(1.05);
+}
+
+.call_control.call_end{
+    background: red;
+}
+
+.call_end i {
+    transform: rotate(135deg);
+}
+
+ /* minimized */
+
+.call_window.minimized {
+    width: 280px;
+    height: 58px;
+
+    border-radius: 12px;
+}
+
+.call_window.minimized .call_user,
+.call_window.minimized .call_controls {
+    display: none;
+}
+
+.call_window.minimized .call_header {
+    width: 100%;
+    height: 100%;
+
+    padding: 0 12px;
+}
+
+.off{
+    background: var(--white-color);
+    color:var(--primary-color);
+}
+
+.message_call {
+    min-width: 125px;
+}
+
+.message_call_title {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color:var(--callBottom-color);
+}
+
+.message_call_bottom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    color:var(--callBottom-color);
+}
+
+.message_call_bottom i {
+    font-size: 15px;
+}
+
+.message_call_duration {
+    font-size: 13px;
+    color: #687385;
+}
+
+.message_call .call_failed {
+    color: #e53935;
+    font-weight: 600;
+}
+
+/* .message_call_info{
+    display: flex;
+    flex-direction: column;
+    margin-left: 10px;
+} */
