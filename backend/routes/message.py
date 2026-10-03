@@ -67,6 +67,7 @@ def get_messages():
                 m.content,
                 m.file_name,
                 m.message_type,
+                m.call_type,
                 m.call_duration,
                 m.status,
                 m.created_at,
@@ -250,15 +251,17 @@ def send_message():
                 public_id=unique_name
             )
 
-            download_url = cloudinary.utils.cloudinary_url(
-                f'chat-watch-files/{unique_name}',
-                resource_type='raw',
-                type='upload',
-                secure=True,
-                flags=f'attachment:{file_name}'
-            )[0]
+            # download_url = cloudinary.utils.cloudinary_url(
+            #     f'chat-watch-files/{unique_name}',
+            #     resource_type='raw',
+            #     type='upload',
+            #     secure=True,
+            #     flags=f'attachment:{file_name}'
+            # )[0]
+            
+            
 
-            content = download_url
+            content = result['secure_url']
             message_type = 'file'
 
         except Exception as error:

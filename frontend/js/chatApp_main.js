@@ -94,6 +94,8 @@ const callMinimize = $('.call_minimize')
 const callMic = $('.call_mic')
 const callVideo = $('.call_video')
 const callEnd = $('.call_end')
+const callRemoteVideo = $('.call_remote_video')
+const callLocalVideo = $('.call_local_video')
 
 const chatApp = {
     isCallPopupOpen: false,
@@ -105,6 +107,12 @@ const chatApp = {
     currentConversation: null,
     isMicOn: true,
     isVideoOn: false,
+    remoteVideoOn: true,
+
+    callType: 'voice',
+
+    localVideo: null,
+    remoteVideo: null,
 
     // CALL
     callState: 'idle',
@@ -257,27 +265,44 @@ const chatApp = {
                 )
             }
 
-        this.peerConnection.ontrack =
-            (event) => {
+        // this.peerConnection.ontrack =
+        //     (event) => {
 
-                console.log(
-                    'Đã nhận audio từ người bên kia'
-                )
+        //         console.log(
+        //             'Đã nhận audio từ người bên kia'
+        //         )
 
-                this.remoteStream.addTrack(
-                    event.track
-                )
+        //         this.remoteStream.addTrack(
+        //             event.track
+        //         )
 
-                this.remoteAudio
-                    .play()
-                    .catch(error => {
-                        if(error.name !== 'AbortError')
-                        console.error(
-                            'Không thể phát audio:',
-                            error
-                        )
-                    })
+        //         this.remoteAudio
+        //             .play()
+        //             .catch(error => {
+        //                 if (error.name !== 'AbortError')
+        //                     console.error(
+        //                         'Không thể phát audio:',
+        //                         error
+        //                     )
+        //             })
+        //     }
+
+        this.peerConnection.ontrack = (event) => {
+            this.remoteStream.addTrack(event.track)
+
+            if (event.track.kind === 'video') {
+                callRemoteVideo.srcObject = this.remoteStream
+                callRemoteVideo.muted = true // âm thanh đã phát qua remoteAudio
+                callRemoteVideo.play().catch(() => { })
+                this.setRemoteVideo(this.remoteVideoOn)
+                return
             }
+
+            this.remoteAudio.play().catch(error => {
+                if (error.name !== 'AbortError')
+                    console.error('Không thể phát audio:', error)
+            })
+        }
 
         this.peerConnection.onconnectionstatechange =
             () => {
@@ -314,48 +339,92 @@ const chatApp = {
             }
     },
 
+    // getLocalStream: async function () {
+    //     console.log(
+    //         '>>> getLocalStream ĐÃ ĐƯỢC GỌI <<<'
+    //     )
+    //     try {
+
+    //         const stream =
+    //             await navigator.mediaDevices.getUserMedia({
+    //                 audio: {
+    //                     echoCancellation: true,
+    //                     noiseSuppression: true,
+    //                     autoGainControl: true
+    //                 }
+    //             })
+
+    //         this.localStream = stream
+    //         console.log(
+    //             '>>> ĐÃ LẤY ĐƯỢC MICROPHONE <<<'
+    //         )
+
+    //         console.log(
+    //             'Microphone settings:',
+    //             stream.getAudioTracks()[0].getSettings()
+    //         )
+
+    //         return stream
+
+    //     } catch (error) {
+
+    //         if (error.name === 'NotFoundError') {
+
+    //             alert(
+    //                 'Không tìm thấy microphone. Vui lòng kiểm tra microphone hoặc kết nối tai nghe có mic.'
+    //             )
+
+    //         } else if (error.name === 'NotAllowedError') {
+
+    //             alert(
+    //                 'Bạn chưa cho phép trình duyệt sử dụng microphone.'
+    //             )
+
+    //         } else {
+
+    //             alert(
+    //                 'Không thể truy cập microphone.'
+    //             )
+    //         }
+
+    //         return null
+    //     }
+    // },
+
     getLocalStream: async function () {
+        const audio = {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+        }
+
+        const video = this.callType === 'video'
+            ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+            : false
 
         try {
-
-            const stream =
-                await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    }
-                })
-
-            this.localStream = stream
-
-            console.log(
-                'Đã lấy được microphone'
-            )
-
-            return stream
-
+            this.localStream = await navigator.mediaDevices.getUserMedia({ audio, video })
+            return this.localStream
         } catch (error) {
 
-            if (error.name === 'NotFoundError') {
-
-                alert(
-                    'Không tìm thấy microphone. Vui lòng kiểm tra microphone hoặc kết nối tai nghe có mic.'
-                )
-
-            } else if (error.name === 'NotAllowedError') {
-
-                alert(
-                    'Bạn chưa cho phép trình duyệt sử dụng microphone.'
-                )
-
-            } else {
-
-                alert(
-                    'Không thể truy cập microphone.'
-                )
+            // Gọi video nhưng camera lỗi → thử lại chỉ với mic
+            if (video) {
+                try {
+                    this.localStream = await navigator.mediaDevices.getUserMedia({ audio })
+                    alert('Không thể bật camera, cuộc gọi sẽ chỉ có âm thanh.')
+                    return this.localStream
+                } catch (e) {
+                    error = e
+                }
             }
 
+            if (error.name === 'NotFoundError') {
+                alert('Không tìm thấy microphone. Vui lòng kiểm tra thiết bị.')
+            } else if (error.name === 'NotAllowedError') {
+                alert('Bạn chưa cho phép trình duyệt sử dụng microphone/camera.')
+            } else {
+                alert('Không thể truy cập microphone/camera.')
+            }
             return null
         }
     },
@@ -382,6 +451,14 @@ const chatApp = {
 
         console.log(
             'Đã thêm microphone vào WebRTC'
+        )
+    },
+
+    setRemoteVideo: function (isOn) {
+        this.remoteVideoOn = isOn
+        callWindow.classList.toggle(
+            'remote_on',
+            isOn && !!callRemoteVideo.srcObject
         )
     },
 
@@ -549,6 +626,11 @@ const chatApp = {
         // Xóa ICE candidate cũ
         this.pendingIceCandidates = []
 
+        callRemoteVideo.srcObject = null
+        callLocalVideo.srcObject = null
+        callWindow.classList.remove('video_call', 'remote_on', 'local_on')
+        this.remoteVideoOn = true
+        this.isVideoOn = false
         console.log(
             'Đã dọn WebRTC'
         )
@@ -604,14 +686,45 @@ const chatApp = {
         window.location.href = './login.html'
     },
 
+    escapeHtml: function (text) {
+        return String(text ?? '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    },
+
+    // Bỏ đoạn fl_attachment trong URL cũ để mở xem được cả tin nhắn đã gửi trước đây
+    getFileViewUrl: function (url) {
+        return String(url || '').replace(/\/fl_attachment[^/]*\//, '/')
+    },
+
+    renderFileMessage: function (message) {
+        const viewUrl = this.escapeHtml(this.getFileViewUrl(message.content))
+        const name = this.escapeHtml(message.file_name)
+
+        return `
+        <div class="message_file_wrap">
+            <a class="message_file" href="${viewUrl}" target="_blank"
+               rel="noopener" title="Mở file">
+                <i class="fa-regular fa-file"></i>
+                <span>${name}</span>
+            </a>
+            <button type="button" class="message_file_download"
+                    data-url="${viewUrl}" data-name="${name}" title="Tải xuống">
+                <i class="fa-solid fa-download"></i>
+            </button>
+        </div>
+    `
+    },
+
     getCallMessage: function (message) {
 
         const isMine =
             String(message.sender_id) ===
             String(this.config.user.id)
 
-        const callType =
-            'Cuộc gọi thoại'
+        const callType = message.call_type === 'video'
+            ? 'Cuộc gọi video'
+            : 'Cuộc gọi thoại'
 
         switch (message.content) {
 
@@ -783,18 +896,22 @@ const chatApp = {
                                     alt="Ảnh đã gửi"
                                 >`
                             : message.message_type === 'file'
-                                ? `<a
-                                        class="message_file"
-                                        href="${message.content}"
-                                        target="_blank"
-                                        download="${message.file_name}"
-                                    >
-                                        <i class="fa-regular fa-file"></i>
+                                ?
+                                // `
+                                //     <a
+                                //         class="message_file"
+                                //         href="${message.content}"
+                                //         target="_blank"
+                                //         download="${message.file_name}"
+                                //     >
+                                //         <i class="fa-regular fa-file"></i>
 
-                                        <span>
-                                            ${message.file_name}
-                                        </span>
-                                    </a>`
+                                //         <span>
+                                //             ${message.file_name}
+                                //         </span>
+                                //     </a>
+                                // `
+                                `${this.renderFileMessage(message)}`
                                 : message.message_type === 'voice'
                                     ? `
                                         <div class="message_voice">
@@ -836,7 +953,7 @@ const chatApp = {
 
                                                             <div class="message_call_bottom">
 
-                                                                <i class="fa-solid fa-phone"></i>
+                                                                <i class="fa-solid ${message.call_type === 'video' ? 'fa-video' : 'fa-phone'}"></i>
 
                                                                 ${message.content === 'accepted'
                                                     ? `
@@ -849,19 +966,12 @@ const chatApp = {
                                                     : `
                                                                             <span class="message_call_type">
                                                                                 ${callMessage.subText}
-                                                                            </span>
-                                                                        `
-                                                }
-
+                                                                            </span>`}
                                                             </div>
-
-                                                        </div>
-                                                    `
-                                        })()
-                                        : `
-                                            <p>
-                                                ${message.content}
-                                            </p>`
+                                                        </div>`})() : `
+                                                <p>
+                                                    ${message.content}
+                                                </p>`
 
                         }
                         </div>
@@ -975,20 +1085,22 @@ const chatApp = {
                     >
                     `
                 : message.message_type === 'file'
-                    ? `
-                        <a
-                            class="message_file"
-                            href="${message.content}"
-                            target="_blank"
-                            download="${message.file_name}"
-                        >
-                            <i class="fa-regular fa-file"></i>
+                    ?
+                    // `
+                    //     <a
+                    //         class="message_file"
+                    //         href="${message.content}"
+                    //         target="_blank"
+                    //         download="${message.file_name}"
+                    //     >
+                    //         <i class="fa-regular fa-file"></i>
 
-                            <span>
-                                ${message.file_name}
-                            </span>
-                        </a>
-                    `
+                    //         <span>
+                    //             ${message.file_name}
+                    //         </span>
+                    //     </a>
+                    // `
+                    `${this.renderFileMessage(message)}`
                     : message.message_type === 'voice'
                         ? `
                             <div class="message_voice">
@@ -1389,6 +1501,32 @@ const chatApp = {
         }
     },
 
+    // Hôm nay: 14:30 | Hôm qua: "Hôm qua" | Cũ hơn: 02/10
+    formatMessageTime: function (dateString) {
+
+        if (!dateString) {
+            return ''
+        }
+
+        const date = new Date(dateString.replace(' ', 'T'))
+        const now = new Date()
+
+        const yesterday = new Date()
+        yesterday.setDate(now.getDate() - 1)
+
+        const pad = (n) => String(n).padStart(2, '0')
+
+        if (date.toDateString() === now.toDateString()) {
+            return `${pad(date.getHours())}:${pad(date.getMinutes())}`
+        }
+
+        if (date.toDateString() === yesterday.toDateString()) {
+            return 'Hôm qua'
+        }
+
+        return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}`
+    },
+
     loadConversations: async function () {
         try {
             const userId = this.config.user.id
@@ -1459,6 +1597,20 @@ const chatApp = {
                                     : conversation.last_message.content
                         }
                     }
+                    const timeText = conversation.last_message
+                        ? this.formatMessageTime(conversation.last_message.created_at)
+                        : ''
+
+                    const isOpen =
+                        this.currentConversation &&
+                        String(this.currentConversation.conversation_id) ===
+                        String(conversation.conversation_id)
+
+                    const unreadDot =
+                        conversation.unread_count > 0 && !isOpen
+                            ? '<span class="unread_dot"></span>'
+                            : ''
+
                     return `
                     <div
                         class="conversation_item"
@@ -1476,12 +1628,14 @@ const chatApp = {
                                     ${user.username}
                                 </h3>
                                 <span class="conversation_time">
+                                    ${timeText}
                                 </span>
                             </div>
                             <div class="conversation_bottom">
                                 <p class="conversation_message">
                                     ${messagePreview}
                                 </p>
+                                ${unreadDot}
                             </div>
                         </div>
                     </div>
@@ -1555,9 +1709,37 @@ const chatApp = {
                     : message.content
         }
 
-        conversationList.prepend(
-            conversationItem
-        )
+                // Cập nhật giờ
+        const timeElement =
+            conversationItem.querySelector('.conversation_time')
+
+        if (timeElement && message.created_at) {
+            timeElement.textContent =
+                this.formatMessageTime(message.created_at)
+        }
+
+        // Hiện chấm đỏ nếu là tin của người khác và chưa mở cuộc trò chuyện đó
+        const isOpen =
+            this.currentConversation &&
+            String(this.currentConversation.conversation_id) ===
+            String(message.conversation_id)
+
+        const bottom =
+            conversationItem.querySelector('.conversation_bottom')
+
+        if (
+            !isMine &&
+            !isOpen &&
+            bottom &&
+            !bottom.querySelector('.unread_dot')
+        ) {
+            bottom.insertAdjacentHTML(
+                'beforeend',
+                '<span class="unread_dot"></span>'
+            )
+        }
+
+        conversationList.prepend( conversationItem )
     },
 
     compressImage: function (image) {
@@ -1679,6 +1861,7 @@ const chatApp = {
                 }
             )
         }
+        this.cleanupWebRTC()
         this.stopCallTimer()
         this.callState = 'idle'
         this.callUserId = null
@@ -1754,91 +1937,225 @@ const chatApp = {
         this.callStartTime = null
     },
 
-    callUser: function (userId) {
+    callUser: function (userId, callType = 'voice') {
 
         if (this.callState !== 'idle') {
             return
         }
 
         this.callState = 'calling'
+
         this.callUserId = userId
+
+        this.callType = callType
+
         this.setCallUserInfo(userId)
+
         this.openCallPopup()
 
-        // Thông tin popup
-        $('.call_status').textContent = 'Đang gọi...'
+        $('.call_status').textContent =
+            'Đang gọi...'
 
-        // Người gọi không cần nút chấp nhận
-        callAccept.style.display = 'none'
+        callAccept.style.display =
+            'none'
 
-        // Đổi nút từ chối thành nút kết thúc
-        callReject.style.display = 'flex'
+        callReject.style.display =
+            'flex'
+
         callReject.innerHTML = `
         <i class="fa-solid fa-phone"></i>
         <span>Kết thúc</span>
     `
 
-        this.socket.emit('call_request', {
-            caller_id: this.config.user.id,
-            receiver_id: userId
-        }
+        this.socket.emit(
+            'call_request',
+            {
+                caller_id:
+                    this.config.user.id,
+
+                receiver_id:
+                    userId,
+
+                call_type:
+                    callType
+            }
         )
     },
 
-    showIncomingCall: function (callerId) {
+    showIncomingCall: function (callerId, callType = 'voice') {
 
         this.callState = 'ringing'
         this.callUserId = callerId
+        this.callType = callType
         this.setCallUserInfo(callerId)
         callOverlay.style.display = 'flex'
 
-        $('.call_status').textContent = 'Cuộc gọi đến...'
+        $('.call_status').textContent =
+            callType === 'video'
+                ? 'Cuộc gọi video đến...'
+                : 'Cuộc gọi thoại đến...'
 
         callReject.style.display = 'flex'
         callAccept.style.display = 'flex'
 
         callReject.innerHTML = `
-        <i class="fa-solid fa-phone-slash"></i>
-        <span>Từ chối</span>
-    `
+            <i class="fa-solid fa-phone-slash"></i>
+            <span>Từ chối</span>
+        `
     },
 
-    openActiveCallWindow: async function (userId) {
+    // openActiveCallWindow: async function (userId, callType = 'voice') {
+    //     this.callType = callType
+    //     this.setCallUserInfo(userId)
 
+    //     this.callState = 'active'
+
+    //     callOverlay.style.display = 'none'
+
+    //     callWindow.style.display = 'flex'
+
+    //     callWindow.classList.remove(
+    //         'minimized'
+    //     )
+
+    //     $('.call_status').textContent =
+    //         'Đang kết nối...'
+
+    //     callAccept.style.display = 'none'
+
+    //     callReject.style.display = 'flex'
+
+    //     callReject.innerHTML = `
+    //     <i class="fa-solid fa-phone"></i>
+    //     <span>Kết thúc</span>
+    // `
+    //     // WWeb rtc
+
+    //     this.createPeerConnection()
+    //     const stream =
+    //         await this.getLocalStream()
+    //     if (!stream) {
+    //         this.endCall()
+    //         return
+    //     }
+    //     this.addLocalTracks()
+    //     this.startCallTimer()
+    // },
+
+    openActiveCallWindow: async function (userId, callType = 'voice') {
+        this.callType = callType
         this.setCallUserInfo(userId)
-
         this.callState = 'active'
 
         callOverlay.style.display = 'none'
-
         callWindow.style.display = 'flex'
+        callWindow.classList.remove('minimized')
+        callWindow.classList.toggle('video_call', callType === 'video')
 
-        callWindow.classList.remove(
-            'minimized'
-        )
-
-        $('.call_status').textContent =
-            'Đang kết nối...'
+        $('.call_window_status').textContent = 'Đang kết nối...'
 
         callAccept.style.display = 'none'
-
         callReject.style.display = 'flex'
-
         callReject.innerHTML = `
-        <i class="fa-solid fa-phone"></i>
-        <span>Kết thúc</span>
-    `
-        // WWeb rtc
+            <i class="fa-solid fa-phone"></i>
+            <span>Kết thúc</span>
+        `
 
         this.createPeerConnection()
-        const stream =
-            await this.getLocalStream()
+
+        const stream = await this.getLocalStream()
         if (!stream) {
             this.endCall()
             return
         }
+
+        // Camera cục bộ
+        const videoTracks = stream.getVideoTracks()
+        this.isVideoOn = videoTracks.length > 0
+
+        if (this.isVideoOn) {
+            callLocalVideo.srcObject = new MediaStream(videoTracks)
+            callLocalVideo.play().catch(() => { })
+        }
+
+        callWindow.classList.toggle('local_on', this.isVideoOn)
+        callVideo.innerHTML = this.isVideoOn
+            ? '<i class="fa-solid fa-video"></i>'
+            : '<i class="fa-solid fa-video-slash"></i>'
+        callVideo.classList.toggle('off', !this.isVideoOn)
+
         this.addLocalTracks()
         this.startCallTimer()
+    },
+
+    initCallDrag: function () {
+        const header = $('.call_header')
+        let startX = 0, startY = 0, originLeft = 0, originTop = 0
+        let dragging = false
+
+        const clamp = (value, min, max) => Math.min(Math.max(value, min), max)
+
+        // Giữ cửa sổ nằm trong màn hình
+        this.clampCallWindow = () => {
+            if (!callWindow.style.left) return // chưa kéo lần nào
+
+            const rect = callWindow.getBoundingClientRect()
+            const maxLeft = window.innerWidth - rect.width
+            const maxTop = window.innerHeight - rect.height
+
+            callWindow.style.left = clamp(rect.left, 0, Math.max(0, maxLeft)) + 'px'
+            callWindow.style.top = clamp(rect.top, 0, Math.max(0, maxTop)) + 'px'
+        }
+
+        header.addEventListener('pointerdown', (event) => {
+            // Không kéo khi bấm vào nút (thu nhỏ...)
+            if (event.target.closest('button')) return
+
+            const rect = callWindow.getBoundingClientRect()
+
+            // Chuyển từ right/bottom sang left/top ở lần kéo đầu tiên
+            callWindow.style.left = rect.left + 'px'
+            callWindow.style.top = rect.top + 'px'
+            callWindow.style.right = 'auto'
+            callWindow.style.bottom = 'auto'
+
+            startX = event.clientX
+            startY = event.clientY
+            originLeft = rect.left
+            originTop = rect.top
+            dragging = true
+
+            header.setPointerCapture(event.pointerId)
+            callWindow.classList.add('dragging')
+        })
+
+        header.addEventListener('pointermove', (event) => {
+            if (!dragging) return
+
+            const rect = callWindow.getBoundingClientRect()
+            const maxLeft = window.innerWidth - rect.width
+            const maxTop = window.innerHeight - rect.height
+
+            callWindow.style.left =
+                clamp(originLeft + event.clientX - startX, 0, Math.max(0, maxLeft)) + 'px'
+            callWindow.style.top =
+                clamp(originTop + event.clientY - startY, 0, Math.max(0, maxTop)) + 'px'
+        })
+
+        const stopDrag = (event) => {
+            if (!dragging) return
+            dragging = false
+            callWindow.classList.remove('dragging')
+
+            if (header.hasPointerCapture(event.pointerId)) {
+                header.releasePointerCapture(event.pointerId)
+            }
+        }
+
+        header.addEventListener('pointerup', stopDrag)
+        header.addEventListener('pointercancel', stopDrag)
+
+        window.addEventListener('resize', () => this.clampCallWindow())
     },
 
     handleEvent: function () {
@@ -2434,6 +2751,11 @@ const chatApp = {
                 })
 
             conversationItem.classList.add('active')
+            const dot = conversationItem.querySelector('.unread_dot')
+
+            if (dot) {
+                dot.remove()
+            }
 
             this.openConversation(conversation)
         }
@@ -2983,7 +3305,20 @@ const chatApp = {
             }
 
             this.callUser(
-                this.currentConversation.user.id
+                this.currentConversation.user.id,
+                'voice'
+            )
+        }
+
+        callVideoBtn.onclick = () => {
+
+            if (!this.currentConversation) {
+                return
+            }
+
+            this.callUser(
+                this.currentConversation.user.id,
+                'video'
             )
         }
 
@@ -3027,10 +3362,10 @@ const chatApp = {
 
         callMinimize.onclick = () => {
 
-            callWindow.classList.toggle(
-                'minimized'
-            )
+            callWindow.classList.toggle('minimized')
+            this.clampCallWindow()
         }
+        this.initCallDrag()
 
         callMic.onclick = () => {
 
@@ -3044,59 +3379,263 @@ const chatApp = {
                     .forEach(track => {
                         track.enabled = this.isMicOn
                     }
-                )
+                    )
             }
 
-            callMic.innerHTML =this.isMicOn
-                    ? '<i class="fa-solid fa-microphone"></i>'
-                    : '<i class="fa-solid fa-microphone-slash"></i>'
+            callMic.innerHTML = this.isMicOn
+                ? '<i class="fa-solid fa-microphone"></i>'
+                : '<i class="fa-solid fa-microphone-slash"></i>'
 
-            callMic.classList.toggle('off',!this.isMicOn
+            callMic.classList.toggle('off', !this.isMicOn
             )
 
             callMic.title = this.isMicOn
-                    ? 'Tắt microphone'
-                    : 'Bật microphone'
+                ? 'Tắt microphone'
+                : 'Bật microphone'
         }
 
+        // callVideo.onclick = () => {
+
+        //     this.isVideoOn =
+        //         !this.isVideoOn
+
+        //     callVideo.innerHTML =
+        //         this.isVideoOn
+        //             ? '<i class="fa-solid fa-video"></i>'
+        //             : '<i class="fa-solid fa-video-slash"></i>'
+
+        //     callVideo.classList.toggle(
+        //         'off',
+        //         !this.isVideoOn
+        //     )
+        // }
+
         callVideo.onclick = () => {
+            const videoTrack = this.localStream && this.localStream.getVideoTracks()[0]
 
-            this.isVideoOn =
-                !this.isVideoOn
+            if (!videoTrack) {
+                alert('Không tìm thấy camera.')
+                return
+            }
 
-            callVideo.innerHTML =
-                this.isVideoOn
-                    ? '<i class="fa-solid fa-video"></i>'
-                    : '<i class="fa-solid fa-video-slash"></i>'
+            this.isVideoOn = !this.isVideoOn
+            videoTrack.enabled = this.isVideoOn
 
-            callVideo.classList.toggle(
-                'off',
-                !this.isVideoOn
-            )
+            callVideo.innerHTML = this.isVideoOn
+                ? '<i class="fa-solid fa-video"></i>'
+                : '<i class="fa-solid fa-video-slash"></i>'
+            callVideo.classList.toggle('off', !this.isVideoOn)
+            callWindow.classList.toggle('local_on', this.isVideoOn)
+
+            // Báo cho máy bên kia ẩn/hiện video
+            this.socket.emit('call_video_toggle', {
+                user_id: this.config.user.id,
+                target_user_id: this.callUserId,
+                is_video_on: this.isVideoOn
+            })
         }
 
         callEnd.onclick = () => {
             this.endCall()
         }
 
-        callAccept.onclick = async () => {
+        // callAccept.onclick = async () => {
 
+        //     if (this.callState !== 'ringing') {
+        //         return
+        //     }
+
+        //     this.socket.emit(
+        //         'call_accept',
+        //         {
+        //             caller_id: this.callUserId,
+        //             receiver_id: this.config.user.id
+        //         }
+        //     )
+
+        //     await this.openActiveCallWindow(
+        //         this.callUserId
+        //     )
+        // }
+
+        callAccept.onclick = async () => {
             if (this.callState !== 'ringing') {
                 return
             }
 
-            this.socket.emit(
-                'call_accept',
-                {
-                    caller_id: this.callUserId,
-                    receiver_id: this.config.user.id
-                }
-            )
+            const callerId = this.callUserId
 
-            await this.openActiveCallWindow(
-                this.callUserId
-            )
+            await this.openActiveCallWindow(callerId, this.callType)
+
+            // Bị hủy hoặc lỗi thiết bị trong lúc chờ cấp quyền
+            if (this.callState !== 'active') {
+                return
+            }
+
+            this.socket.emit('call_accept', {
+                caller_id: callerId,
+                receiver_id: this.config.user.id
+            })
         }
+
+        // ============ PHÓNG TO ẢNH ============
+        const lightbox = document.createElement('div')
+        lightbox.className = 'image_lightbox'
+        lightbox.innerHTML = `
+            <button type="button" class="image_lightbox_close" title="Đóng (Esc)">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="image_lightbox_wrapper">
+                <img class="image_lightbox_img" alt="Ảnh phóng to">
+            </div>
+        `
+        document.body.appendChild(lightbox)
+
+        const lightboxImg = lightbox.querySelector('.image_lightbox_img')
+
+        // Trạng thái Zoom & Pan
+        let scale = 1
+        let pointX = 0
+        let pointY = 0
+        let startX = 0
+        let startY = 0
+        let isDragging = false
+
+        const updateTransform = () => {
+            lightboxImg.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`
+        }
+
+        const resetZoom = () => {
+            scale = 1
+            pointX = 0
+            pointY = 0
+            updateTransform()
+        }
+
+        const closeLightbox = () => {
+            lightbox.classList.remove('open')
+            lightboxImg.removeAttribute('src')
+            resetZoom()
+        }
+
+        // Mở Lightbox
+        chatBody.addEventListener('click', (event) => {
+            const img = event.target.closest('.message_image')
+            if (!img) return
+
+            lightboxImg.src = img.src
+            lightbox.classList.add('open')
+            resetZoom()
+        })
+
+        // Xử lý Lăn chuột để Zoom (Zoom theo vị trí con trỏ chuột)
+        lightbox.addEventListener('wheel', (event) => {
+            if (!lightbox.classList.contains('open')) return
+            event.preventDefault()
+
+            const zoomFactor = 0.15
+            const oldScale = scale
+
+            if (event.deltaY < 0) {
+                scale = Math.min(scale + zoomFactor, 5) // Giới hạn phóng to tối đa 5x
+            } else {
+                scale = Math.max(scale - zoomFactor, 1) // Giới hạn thu nhỏ tối thiểu 1x
+            }
+
+            if (scale === 1) {
+                pointX = 0
+                pointY = 0
+            } else if (scale !== oldScale) {
+                // Tối ưu điểm phóng to theo tọa độ con trỏ chuột
+                const rect = lightboxImg.getBoundingClientRect()
+                const mouseX = event.clientX - rect.left
+                const mouseY = event.clientY - rect.top
+
+                const ratio = scale / oldScale - 1
+                pointX -= (mouseX - rect.width / 2) * ratio
+                pointY -= (mouseY - rect.height / 2) * ratio
+            }
+
+            updateTransform()
+        }, { passive: false })
+
+        // Xử lý Kéo rê (Drag / Pan) khi ảnh được phóng to
+        lightboxImg.addEventListener('mousedown', (event) => {
+            if (scale <= 1) return
+            event.preventDefault()
+
+            isDragging = true
+            startX = event.clientX - pointX
+            startY = event.clientY - pointY
+            lightboxImg.style.cursor = 'grabbing'
+        })
+
+        window.addEventListener('mousemove', (event) => {
+            if (!isDragging) return
+            event.preventDefault()
+
+            pointX = event.clientX - startX
+            pointY = event.clientY - startY
+            updateTransform()
+        })
+
+        window.addEventListener('mouseup', () => {
+            if (!isDragging) return
+            isDragging = false
+            lightboxImg.style.cursor = scale > 1 ? 'grab' : 'default'
+        })
+
+        // Click đúp vào ảnh để Toggle Zoom nhanh (1x <-> 2.5x)
+        lightboxImg.addEventListener('dblclick', (event) => {
+            event.stopPropagation()
+            if (scale > 1) {
+                resetZoom()
+            } else {
+                scale = 2.5
+                updateTransform()
+            }
+        })
+
+        // Bấm nền ngoài hoặc nút đóng để thoát
+        lightbox.addEventListener('click', (event) => {
+            if (event.target === lightbox || event.target.closest('.image_lightbox_close')) {
+                closeLightbox()
+            }
+        })
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && lightbox.classList.contains('open')) {
+                closeLightbox()
+            }
+        })
+
+        // ============ TẢI FILE ============
+        chatBody.addEventListener('click', async (event) => {
+            const btn = event.target.closest('.message_file_download')
+            if (!btn) return
+
+            const url = btn.dataset.url
+            const name = btn.dataset.name || 'file'
+
+            try {
+                const response = await fetch(url)
+                if (!response.ok) throw new Error(response.status)
+
+                const blobUrl = URL.createObjectURL(await response.blob())
+                const a = document.createElement('a')
+                a.href = blobUrl
+                a.download = name
+                document.body.appendChild(a)
+                a.click()
+                a.remove()
+                URL.revokeObjectURL(blobUrl)
+            } catch (error) {
+                console.error('Không tải được file:', error)
+                window.open(url, '_blank') // dự phòng
+            }
+        })
+
+
     },
 
     start: function () {
@@ -3362,7 +3901,7 @@ const chatApp = {
         // CALL 
 
         this.socket.on('incoming_call', (data) => {
-            this.showIncomingCall(data.caller_id)
+            this.showIncomingCall(data.caller_id, data.call_type)
         }
         )
 
@@ -3389,11 +3928,38 @@ const chatApp = {
     `
         })
 
+        // this.socket.on('call_accepted', async (data) => {
+        //     this.callType = data.call_type || 'voice'
+        //     await this.openActiveCallWindow(data.user_id, this.callType)
+        //     await this.createOffer()
+
+        // })
+
         this.socket.on('call_accepted', async (data) => {
-
-            await this.openActiveCallWindow(data.user_id)
+            // Người nhận đã mở cửa sổ khi bấm "Chấp nhận" → chỉ người gọi xử lý tiếp
+            if (this.callState !== 'calling') {
+                return
+            }
+            this.callType = data.call_type || this.callType
+            await this.openActiveCallWindow(data.user_id, this.callType)
+            if (this.callState !== 'active') {
+                return
+            }
             await this.createOffer()
+        })
 
+        this.socket.on('call_video_toggle', (data) => {
+            if (String(data.user_id) !== String(this.callUserId)) {
+                return
+            }
+            this.setRemoteVideo(data.is_video_on)
+        })
+
+        this.socket.on('call_video_toggle', (data) => {
+            if (String(data.user_id) !== String(this.callUserId)) {
+                return
+            }
+            this.setRemoteVideo(data.is_video_on)
         })
 
         this.socket.on('call_cancelled', async () => {
@@ -3543,6 +4109,17 @@ const chatApp = {
         this.socket.on('webrtc_answer', async (data) => {
 
             if (!this.peerConnection) {
+                return
+            }
+
+            if (
+                this.peerConnection.signalingState !==
+                'have-local-offer'
+            ) {
+                console.log(
+                    'Bỏ qua WebRTC answer bị trùng'
+                )
+
                 return
             }
 

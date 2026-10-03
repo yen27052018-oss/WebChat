@@ -703,12 +703,12 @@ body {
 /* scrollbar */
 
 .conversation_list::-webkit-scrollbar {
-    width: 4px;
+    width: 8px;
 }
 
 
 .conversation_list::-webkit-scrollbar-thumb {
-    background: #343b46;
+    background: var(--scroll-bar);
 
     border-radius: 10px;
 }
@@ -825,7 +825,7 @@ body {
 .conversation_time {
     flex-shrink: 0;
 
-    color: #6f7886;
+    color: var(--desc-color);
 
     font-size: 10px;
 }
@@ -2064,6 +2064,8 @@ body {
 
     width: 100%;
     height: 100%;
+
+    overflow: hidden;
 }
 
 .call_header {
@@ -2105,7 +2107,7 @@ body {
 
 .call_window_actions button:hover {
     background: rgba(255, 255, 255, .3);
-}
+} 
 
 .call_user {
     height: calc(100% - 135px);
@@ -2255,3 +2257,242 @@ body {
     flex-direction: column;
     margin-left: 10px;
 } */
+
+/* ================= CALL VIDEO ================= */
+/* Vùng video: mặc định ẩn (cuộc gọi thoại) */
+.call_video_area {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.call_window.video_call .call_video_area {
+    display: block;
+}
+
+.call_remote_video {
+    display: none;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #000;
+}
+
+.call_window.remote_on .call_remote_video {
+    display: block;
+}
+
+.call_local_video {
+    display: none;
+    position: absolute;
+    right: 12px;
+    bottom: 92px;
+    width: 96px;
+    height: 128px;
+    object-fit: cover;
+    border-radius: 12px;
+    border: 2px solid rgba(255, 255, 255, .7);
+    background: #222;
+    transform: scaleX(-1); /* lật gương cho camera của mình */
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .4);
+}
+
+.call_window.local_on .call_local_video {
+    display: block;
+}
+
+/* Khi đang thấy video đối phương: chỉ giữ đồng hồ */
+.call_window.remote_on .call_header {
+    background: linear-gradient(rgba(0, 0, 0, .55), transparent);
+}
+
+.call_window.remote_on .call_controls {
+    background: linear-gradient(transparent, rgba(0, 0, 0, .55));
+}
+
+.call_window.remote_on .call_user {
+    position: absolute;
+    top: 55px;
+    left: 0;
+    right: 0;
+    height: auto;
+    z-index: 2;
+}
+
+.call_window.remote_on .call_window_avatar,
+.call_window.remote_on .call_window_name,
+.call_window.remote_on .call_window_status {
+    display: none;
+}
+
+.call_window.remote_on .call_duration {
+    text-shadow: 0 1px 4px rgba(0, 0, 0, .7);
+}
+
+/* Cuộc gọi thoại: ẩn nút camera */
+.call_window:not(.video_call) .call_video {
+    display: none;
+}
+
+.call_window.minimized .call_video_area {
+    display: none;
+}
+
+/* ================= KÉO CỬA SỔ CALL ================= */
+.call_header {
+    cursor: grab;
+    user-select: none;
+    touch-action: none; /* cho phép kéo bằng cảm ứng */
+}
+
+.call_window.dragging .call_header {
+    cursor: grabbing;
+}
+
+.call_window.dragging {
+    transition: none;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .45);
+}
+
+.call_window_actions button {
+    cursor: pointer;
+}
+
+/* ===== 3 nút điều khiển: luôn nằm ở đáy, giữa cửa sổ ===== */
+.call_window .call_controls {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 90px;
+    margin: 0;
+    z-index: 5;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+
+    background: linear-gradient(transparent, rgba(0, 0, 0, .5));
+}
+
+.call_window .call_control {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    cursor: pointer;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: var(--primary-rgb);
+    color: var(--white-color);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+}
+
+/* Mic / camera đang tắt: nền trắng, icon đậm */
+.call_window .call_control.off {
+    background: #fff;
+    color: #222;
+}
+
+/* Nút kết thúc */
+.call_window .call_control.call_end {
+    background: #e53935;
+    color: #fff;
+}
+
+/* ===== Camera nhỏ của mình: góc trên bên phải ===== */
+.call_window .call_local_video {
+    top: 62px;
+    right: 12px;
+    bottom: auto;
+    left: auto;
+    z-index: 4;
+}
+
+/* Cuộc gọi thoại có thể vẫn ẩn nút camera như cũ */
+.call_window.minimized .call_controls {
+    display: none;
+}
+
+.image_lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, .88);
+    overflow: auto;
+}
+
+.image_lightbox.open { display: flex; }
+
+.image_lightbox_img {
+    max-width: 92vw;
+    max-height: 92vh;
+    object-fit: contain;
+    border-radius: 6px;
+    cursor: zoom-in;
+    transition: transform .2s;
+}
+
+.image_lightbox.zoomed .image_lightbox_img {
+    transform: scale(1.8);
+    cursor: zoom-out;
+}
+
+.image_lightbox_close {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .2);
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.image_lightbox_close:hover { background: rgba(255, 255, 255, .35); }
+
+.message_file_wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-right: 8px;
+}
+
+.message_file_wrap .message_file { flex: 1; min-width: 0; }
+
+.message_file_download {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--primary-rgb);
+    cursor: pointer;
+    transition: background 0.3s, color 0.3s;
+}
+
+.message_file_download:hover { 
+    background: var(--primary-rgb);
+    color:var(--white-color);
+}
+
+.unread_dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--error-color);
+    flex-shrink: 0;
+}

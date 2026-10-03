@@ -12,6 +12,7 @@ active_calls = {}
 call_timers = {}
 call_callers = {}
 call_start_times = {}
+call_types = {}
 
 # =========================
 # SOCKET.IO CONNECT
@@ -576,7 +577,7 @@ def save_call_message(
         # =========================
         # INSERT CALL MESSAGE
         # =========================
-
+        call_type = call_types.get(str(caller_id), 'voice')
         cursor.execute(
             '''
             INSERT INTO messages (
@@ -584,6 +585,7 @@ def save_call_message(
                 sender_id,
                 content,
                 message_type,
+                call_type,
                 call_duration,
                 status
             )
@@ -594,6 +596,7 @@ def save_call_message(
                 %s,
                 'call',
                 %s,
+                %s,
                 %s
             )
             ''',
@@ -601,6 +604,7 @@ def save_call_message(
                 conversation_id,
                 caller_id,
                 call_status,
+                call_type,
                 call_duration,
                 message_status
             )
@@ -640,6 +644,7 @@ def save_call_message(
                 m.sender_id,
                 m.content,
                 m.message_type,
+                m.call_type,
                 m.call_duration,
                 m.status,
                 m.created_at
@@ -711,6 +716,11 @@ def handle_call_request(data):
 
     caller_id = str(caller_id)
     receiver_id = str(receiver_id)
+    
+    call_type = data.get( 'call_type', 'voice')
+
+    if call_type not in ( 'voice', 'video'):
+        call_type = 'voice'
 
     # =========================
     # KIỂM TRA NGƯỜI GỌI
@@ -761,6 +771,9 @@ def handle_call_request(data):
 
     ringing_calls[caller_id] = receiver_id
     ringing_calls[receiver_id] = caller_id
+    
+    call_types[caller_id] = call_type
+    call_types[receiver_id] = call_type
 
     # Lưu người gọi ban đầu
     call_callers[caller_id] = caller_id
@@ -773,7 +786,8 @@ def handle_call_request(data):
     socketio.emit(
         'incoming_call',
         {
-            'caller_id': caller_id
+            'caller_id': caller_id,
+            'call_type': call_type
         },
         room=f'user_{receiver_id}'
     )
@@ -817,20 +831,6 @@ def handle_call_timeout(caller_id, receiver_id):
         != receiver_id
     ):
         return
-
-    # =========================
-    # XÓA RINGING
-    # =========================
-
-    ringing_calls.pop(
-        caller_id,
-        None
-    )
-
-    ringing_calls.pop(
-        receiver_id,
-        None
-    )
 
     # =========================
     # XÓA TIMER
@@ -1310,6 +1310,10 @@ def handle_call_accept(data):
 
     caller_id = str(caller_id)
     receiver_id = str(receiver_id)
+    call_type = call_types.get(
+        caller_id,
+        'voice'
+    )
 
     # =========================
     # KIỂM TRA CUỘC GỌI
@@ -1371,7 +1375,8 @@ def handle_call_accept(data):
     socketio.emit(
         'call_accepted',
         {
-            'user_id': receiver_id
+            'user_id': receiver_id,
+            'call_type': call_type
         },
         room=f'user_{caller_id}'
     )
@@ -1383,7 +1388,8 @@ def handle_call_accept(data):
     socketio.emit(
         'call_accepted',
         {
-            'user_id': caller_id
+            'user_id': caller_id,
+            'call_type': call_type
         },
         room=f'user_{receiver_id}'
     )
@@ -1511,6 +1517,23 @@ def handle_webrtc_ice_candidate(data):
         {
             'user_id': user_id,
             'candidate': candidate
+        },
+        room=f'user_{target_user_id}'
+    )
+    
+@socketio.on('call_video_toggle')
+def handle_call_video_toggle(data):
+    user_id = data.get('user_id')
+    target_user_id = data.get('target_user_id')
+
+    if not user_id or not target_user_id:
+        return
+
+    socketio.emit(
+        'call_video_toggle',
+        {
+            'user_id': str(user_id),
+            'is_video_on': bool(data.get('is_video_on'))
         },
         room=f'user_{target_user_id}'
     )

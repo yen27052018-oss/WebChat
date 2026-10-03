@@ -419,7 +419,8 @@ def get_conversations():
                         sender_id,
                         content,
                         file_name,
-                        message_type
+                        message_type,
+                        created_at
                     FROM messages
                     WHERE conversation_id = %s
                     ORDER BY created_at DESC, id DESC
@@ -428,13 +429,30 @@ def get_conversations():
                     (conversation_id,)
                 )
 
-            last_message = cursor.fetchone()    
+            last_message = cursor.fetchone()  
+            
+            if last_message and last_message['created_at']:
+                last_message['created_at'] = \
+                    last_message['created_at'].strftime('%Y-%m-%d %H:%M:%S')  
+            
+            cursor.execute(
+                '''
+                SELECT COUNT(*) AS unread_count
+                FROM messages
+                WHERE conversation_id = %s
+                    AND sender_id != %s
+                    AND status != 'seen'
+                ''',
+                (conversation_id, user_id)
+            )
+            unread_count = cursor.fetchone()['unread_count']
             
             result.append({
                 'conversation_id': conversation_id,
                 'type': conversation['type'],
                 'user': user,
-                'last_message': last_message
+                'last_message': last_message,
+                'unread_count': unread_count
             })
 
         return jsonify({
