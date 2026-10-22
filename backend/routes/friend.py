@@ -353,7 +353,7 @@ def accept_friend_request():
         
 @friend_bp.route('/api/conversations', methods=['GET'])
 def get_conversations():
-
+    print('>>> get_conversations V2 đang chạy')
     user_id = request.args.get('user_id')
 
     if not user_id:
@@ -376,7 +376,7 @@ def get_conversations():
             FROM conversations c
             JOIN conversation_members cm
                 ON c.id = cm.conversation_id
-            WHERE cm.user_id = %s
+            WHERE cm.user_id = %s AND cm.is_deleted = 0
             ORDER BY c.updated_at DESC
             ''',
             (user_id,)
@@ -421,12 +421,16 @@ def get_conversations():
                         file_name,
                         message_type,
                         created_at
-                    FROM messages
+                    FROM messages m
                     WHERE conversation_id = %s
+                        AND NOT EXISTS (
+                            SELECT 1 FROM message_deletions d
+                            WHERE d.message_id = m.id AND d.user_id = %s
+                        )
                     ORDER BY created_at DESC, id DESC
                     LIMIT 1
                     ''',
-                    (conversation_id,)
+                    (conversation_id,user_id)
                 )
 
             last_message = cursor.fetchone()  
@@ -438,12 +442,17 @@ def get_conversations():
             cursor.execute(
                 '''
                 SELECT COUNT(*) AS unread_count
-                FROM messages
-                WHERE conversation_id = %s
-                    AND sender_id != %s
-                    AND status != 'seen'
+                FROM messages m
+                WHERE m.conversation_id = %s
+                    AND m.sender_id != %s
+                    AND m.status != 'seen'
+                    AND m.is_recalled = 0
+                    AND NOT EXISTS (
+                        SELECT 1 FROM message_deletions d
+                        WHERE d.message_id = m.id AND d.user_id = %s
+                    )
                 ''',
-                (conversation_id, user_id)
+                (conversation_id, user_id, user_id)
             )
             unread_count = cursor.fetchone()['unread_count']
             

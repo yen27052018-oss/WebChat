@@ -65,6 +65,22 @@ const notificationList = $('.notifcation_list')
 
 const conversationList = $('.conversation_list')
 const conversationSearch = $('#conversationSearch')
+
+// Thanh "Trả lời ..." nằm phía trên ô nhập tin nhắn
+const replyBar = document.createElement('div')
+replyBar.className = 'reply_bar'
+replyBar.innerHTML = `
+    <i class="fa-solid fa-quote-right reply_bar_icon"></i>
+    <div class="reply_bar_info">
+        <b class="reply_bar_name"></b>
+        <span class="reply_bar_text"></span>
+    </div>
+    <button type="button" class="reply_bar_close" title="Hủy trả lời">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+`
+$('.chat_input').before(replyBar)
+
 const chatEmpty = $('#chatEmpty')
 const chatRoom = $('#chatRoom')
 const chatAvatar = $('#chatAvatar')
@@ -110,6 +126,8 @@ const chatApp = {
     currentConversation: null,
     isMicOn: true,
     isVideoOn: false,
+    replyingTo: null,
+    messageMap: {},
     currentFilter: 'all',
     remoteVideoOn: true,
 
@@ -877,7 +895,7 @@ const chatApp = {
                                 : 'Đã gửi'
 
                     return `
-                    <div class="${messageClass}">
+                    <div class="${messageClass} "data-message-id="${message.id}">
 
                         ${!isMine && !isSameSender
                             ? `
@@ -991,6 +1009,16 @@ const chatApp = {
                     </div>
                 `
                 }).join('')
+
+            // Gắn nút hover, khung trích dẫn, trạng thái thu hồi
+            this.messageMap = {}
+
+            result.messages.forEach(message => {
+                const element = chatBody.querySelector(
+                    `[data-message-id="${message.id}"]`
+                )
+                this.decorateMessage(element, message)
+            })
 
             const messageImages =
                 chatBody.querySelectorAll('.message_image')
@@ -1174,6 +1202,9 @@ const chatApp = {
         `
 
         chatBody.appendChild(messageElement)
+
+        messageElement.dataset.messageId = message.id
+        this.decorateMessage(messageElement, message)
 
         messageElement.scrollIntoView({
             behavior: 'smooth',
@@ -1374,7 +1405,7 @@ const chatApp = {
     },
 
     openConversation: function (conversation) {
-
+        this.clearReply()
         this.currentConversation = conversation
 
         chatEmpty.style.display = 'none'
@@ -1530,7 +1561,320 @@ const chatApp = {
 
         return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}`
     },
+    // =====================================
+    // Nội dung ngắn gọn để hiển thị trong khung trích dẫn
+    getReplyText: function (type, content, fileName, isRecalled) {
 
+        if (isRecalled) return 'Tin nhắn đã được thu hồi'
+        if (type === 'image') return '📷 Hình ảnh'
+        if (type === 'file') return `📎 ${fileName || 'File'}`
+        if (type === 'voice') return '🎤 Tin nhắn thoại'
+        if (type === 'call') return '📞 Cuộc gọi'
+
+        return content
+    },
+
+    // Thêm nút hover, khung trích dẫn, hoặc đổi thành "đã thu hồi"
+    decorateMessage: function (element, message) {
+
+        // Tin nhắn cuộc gọi không có nút
+        if (!element || message.message_type === 'call') {
+            return
+        }
+
+        const content = element.querySelector('.message_content')
+
+        if (!content) {
+            return
+        }
+
+        this.messageMap[message.id] = message
+
+        // 1. Tin nhắn đã thu hồi
+        if (message.is_recalled) {
+
+            content.classList.add('recalled')
+            content.innerHTML =
+                '<p class="message_recalled">Tin nhắn đã được thu hồi</p>'
+
+            const oldActions = element.querySelector('.message_actions')
+
+            if (oldActions) {
+                oldActions.remove()
+            }
+
+            return
+        }
+
+        const isMine =
+            String(message.sender_id) === String(this.config.user.id)
+
+        // 2. Khung trích dẫn (nếu đây là tin nhắn trả lời)
+        if (message.reply_to_id) {
+
+            const reply = document.createElement('div')
+            reply.className = 'message_reply'
+            reply.dataset.replyId = message.reply_to_id
+
+            const name = document.createElement('b')
+            name.textContent = message.reply_username || 'Tin nhắn'
+
+            const text = document.createElement('span')
+            text.textContent = this.getReplyText(
+                message.reply_type,
+                message.reply_content,
+                message.reply_file_name,
+                message.reply_is_recalled
+            )
+
+            reply.append(name, text)
+            content.prepend(reply)
+        }
+
+        // 3. Bọc tin nhắn + nút hover
+        const row = document.createElement('div')
+        row.className = 'message_row'
+
+        content.before(row)
+        row.appendChild(content)
+
+        const actions = document.createElement('div')
+        actions.className = 'message_actions'
+
+        // Tin của mình: nút trả lời + nút 3 chấm. Tin của người khác: chỉ nút trả lời
+        actions.innerHTML = `
+        <button type="button" class="message_action_btn"
+                data-action="reply" title="Trả lời">
+            <i class="fa-solid fa-quote-right"></i>
+        </button>
+        ${isMine
+                ? `<button type="button" class="message_action_btn"
+                       data-action="more" title="Tùy chọn">
+                   <i class="fa-solid fa-ellipsis"></i>
+               </button>`
+                : ''}
+    `
+
+        if (isMine) {
+            row.prepend(actions)      // nằm bên trái tin nhắn
+        } else {
+            row.appendChild(actions)  // nằm bên phải tin nhắn
+        }
+    },
+
+    // ============ TRẢ LỜI ============
+    setReply: function (message) {
+
+        this.replyingTo = message
+
+        const isMine =
+            String(message.sender_id) === String(this.config.user.id)
+
+        replyBar.querySelector('.reply_bar_name').textContent =
+            'Trả lời ' + (isMine ? 'chính mình' : message.sender_username)
+
+        replyBar.querySelector('.reply_bar_text').textContent =
+            this.getReplyText(
+                message.message_type,
+                message.content,
+                message.file_name,
+                message.is_recalled
+            )
+
+        replyBar.style.display = 'flex'
+        messageInput.focus()
+    },
+
+    clearReply: function () {
+        this.replyingTo = null
+        replyBar.style.display = 'none'
+    },
+
+    // ============ MENU DROPDOWN DÙNG CHUNG ============
+    // items: [{ icon, text, danger, onClick }]
+    showContextMenu: function (button, items) {
+
+        this.closeContextMenu()
+
+        const menu = document.createElement('div')
+        menu.className = 'context_menu'
+
+        items.forEach(item => {
+
+            const btn = document.createElement('button')
+            btn.type = 'button'
+            btn.className =
+                'context_menu_item' + (item.danger ? ' danger' : '')
+            btn.innerHTML =
+                `<i class="fa-solid ${item.icon}"></i><span>${item.text}</span>`
+
+            btn.onclick = () => {
+                this.closeContextMenu()
+                item.onClick()
+            }
+
+            menu.appendChild(btn)
+        })
+
+        document.body.appendChild(menu)
+
+        // Đặt ngay dưới nút, không tràn ra ngoài màn hình
+        const rect = button.getBoundingClientRect()
+
+        let left = rect.right - menu.offsetWidth
+        let top = rect.bottom + 4
+
+        if (left < 8) {
+            left = 8
+        }
+
+        if (top + menu.offsetHeight > window.innerHeight - 8) {
+            top = rect.top - menu.offsetHeight - 4
+        }
+
+        menu.style.left = left + 'px'
+        menu.style.top = top + 'px'
+    },
+
+    closeContextMenu: function () {
+
+        const menu = document.querySelector('.context_menu')
+
+        if (menu) {
+            menu.remove()
+        }
+    },
+
+    // ============ THU HỒI / XÓA TIN NHẮN ============
+    recallMessage: async function (messageId) {
+
+        try {
+            const response = await fetch(`${API_URL}/api/messages/recall`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message_id: messageId,
+                    user_id: this.config.user.id
+                })
+            })
+
+            const result = await response.json()
+
+            if (!result.success) {
+                alert(result.message)
+                return
+            }
+
+            this.applyRecall(messageId)
+
+        } catch (error) {
+            console.error('Lỗi thu hồi tin nhắn:', error)
+        }
+    },
+
+    // Cập nhật giao diện khi một tin nhắn bị thu hồi (cả 2 phía)
+    applyRecall: function (messageId) {
+
+        const message = this.messageMap[messageId]
+
+        if (message) {
+
+            message.is_recalled = 1
+            message.content = ''
+
+            const element = chatBody.querySelector(
+                `[data-message-id="${messageId}"]`
+            )
+
+            this.decorateMessage(element, message)
+        }
+
+        // Cập nhật preview và chấm đỏ
+        this.loadConversations()
+    },
+
+    deleteMessageForMe: async function (messageId) {
+
+        try {
+            const response = await fetch(`${API_URL}/api/messages/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message_id: messageId,
+                    user_id: this.config.user.id
+                })
+            })
+
+            const result = await response.json()
+
+            if (!result.success) {
+                alert(result.message)
+                return
+            }
+
+            const element = chatBody.querySelector(
+                `[data-message-id="${messageId}"]`
+            )
+
+            if (element) {
+                element.remove()
+            }
+
+            delete this.messageMap[messageId]
+            this.loadConversations()
+
+        } catch (error) {
+            console.error('Lỗi xóa tin nhắn:', error)
+        }
+    },
+
+    // ============ XÓA HỘI THOẠI ============
+    deleteConversation: async function (conversationId) {
+
+        if (!confirm(
+            'Xóa cuộc hội thoại này?\nToàn bộ tin nhắn sẽ bị xóa khỏi tài khoản của bạn.'
+        )) {
+            return
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/api/conversations/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    conversation_id: conversationId,
+                    user_id: this.config.user.id
+                })
+            })
+
+            const result = await response.json()
+
+            if (!result.success) {
+                alert(result.message)
+                return
+            }
+
+            // Đang mở đúng hội thoại này thì đóng lại
+            const isOpen =
+                this.currentConversation &&
+                String(this.currentConversation.conversation_id) ===
+                String(conversationId)
+
+            if (isOpen) {
+                this.currentConversation = null
+                this.clearReply()
+                chatBody.innerHTML = ''
+                chatRoom.style.display = 'none'
+                chatEmpty.style.display = 'flex'
+            }
+
+            this.loadConversations()
+
+        } catch (error) {
+            console.error('Lỗi xóa hội thoại:', error)
+        }
+    },
+    // =======================================
     filterConversation: function () {
         const keyword = this.removeAccent(conversationSearch.value.trim())
         const items = conversationList.querySelectorAll('.conversation_item')
@@ -1575,7 +1919,7 @@ const chatApp = {
             const matchName = name.includes(keyword)
 
             // 2. Lọc chưa đọc: có chấm đỏ, hoặc là cuộc trò chuyện đang mở
-            
+
 
             const hasDot = item.querySelector('.unread_dot') !== null
 
@@ -1644,7 +1988,14 @@ const chatApp = {
                         const messageType =
                             conversation.last_message.message_type
 
-                        if (messageType === 'image') {
+                        if (conversation.last_message.is_recalled) {
+                            messagePreview =
+                                isMine
+                                    ? 'Bạn: Tin nhắn đã được thu hồi'
+                                    : 'Tin nhắn đã được thu hồi'
+
+                        }
+                        else if (messageType === 'image') {
                             messagePreview =
                                 isMine
                                     ? 'Bạn: Hình ảnh'
@@ -1717,12 +2068,24 @@ const chatApp = {
                                     ${messagePreview}
                                 </p>
                                 ${unreadDot}
+                                <button type="button" class="conversation_more" title="Tùy chọn">
+                                    <i class="fa-solid fa-ellipsis"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
                 `
                 }).join('')
-                this.filterConversations()
+            this.filterConversations()
+            if (this.currentConversation) {
+                const activeItem = conversationList.querySelector(
+                    `[data-conversation-id="${this.currentConversation.conversation_id}"]`
+                )
+
+                if (activeItem) {
+                    activeItem.classList.add('active')
+                }
+            }
         } catch (error) {
 
             console.error(error)
@@ -1738,6 +2101,7 @@ const chatApp = {
             )
 
         if (!conversationItem) {
+            this.loadConversations()
             return
         }
 
@@ -1753,8 +2117,14 @@ const chatApp = {
         const isMine =
             String(message.sender_id) ===
             String(this.config.user.id)
+        if (message.is_recalled) {
 
-        if (message.message_type === 'image') {
+            messagePreview.textContent =
+                isMine
+                    ? 'Bạn: Tin nhắn đã được thu hồi'
+                    : 'Tin nhắn đã được thu hồi'
+
+        } else if (message.message_type === 'image') {
 
             messagePreview.textContent =
                 isMine
@@ -1812,10 +2182,12 @@ const chatApp = {
             bottom &&
             !bottom.querySelector('.unread_dot')
         ) {
-            bottom.insertAdjacentHTML(
-                'beforeend',
-                '<span class="unread_dot"></span>'
-            )
+            bottom
+                .querySelector('.conversation_message')
+                .insertAdjacentHTML(
+                    'afterend',
+                    '<span class="unread_dot"></span>'
+                )
         }
 
         conversationList.prepend(conversationItem)
@@ -2802,7 +3174,24 @@ const chatApp = {
 
         // CONVERSATION
         conversationList.onclick = (e) => {
+            const moreButton = e.target.closest('.conversation_more')
+            if (moreButton) {
 
+                const itemId =
+                    moreButton.closest('.conversation_item')
+                        .dataset.conversationId
+
+                this.showContextMenu(moreButton, [
+                    {
+                        icon: 'fa-trash',
+                        text: 'Xóa hội thoại',
+                        danger: true,
+                        onClick: () => this.deleteConversation(itemId)
+                    }
+                ])
+
+                return
+            }
             const conversationItem =
                 e.target.closest('.conversation_item')
 
@@ -2883,11 +3272,14 @@ const chatApp = {
                 sender_id:
                     this.config.user.id,
 
-                content: content
+                content: content,
+
+                reply_to_id: this.replyingTo ? this.replyingTo.id : null
 
             })
 
             messageInput.value = ''
+            this.clearReply()
         }
 
         messageInput.onkeydown = (e) => {
@@ -3578,6 +3970,87 @@ const chatApp = {
             })
         }
 
+        chatBody.onclick = (event) => {
+
+            // Bấm vào khung trích dẫn: cuộn tới tin nhắn gốc
+            const reply = event.target.closest('.message_reply')
+
+            if (reply) {
+
+                const target = chatBody.querySelector(
+                    `[data-message-id="${reply.dataset.replyId}"]`
+                )
+
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    })
+                }
+
+                return
+            }
+
+            const button = event.target.closest('.message_action_btn')
+
+            if (!button) {
+                return
+            }
+
+            const messageElement = button.closest('.message')
+            const message = this.messageMap[messageElement.dataset.messageId]
+
+            if (!message) {
+                return
+            }
+
+            if (button.dataset.action === 'reply') {
+                this.setReply(message)
+                return
+            }
+
+            // Nút 3 chấm (chỉ có ở tin nhắn của mình)
+            this.showContextMenu(button, [
+                {
+                    icon: 'fa-rotate-left',
+                    text: 'Thu hồi',
+                    onClick: () => this.recallMessage(message.id)
+                },
+                {
+                    icon: 'fa-trash',
+                    text: 'Xóa phía tôi',
+                    danger: true,
+                    onClick: () => this.deleteMessageForMe(message.id)
+                }
+            ])
+        },
+
+        replyBar.querySelector('.reply_bar_close').onclick = () => {
+            this.clearReply()
+        }
+
+        // Đóng menu khi bấm ra ngoài, nhấn Esc hoặc cuộn
+        document.addEventListener('click', (event) => {
+
+            if (event.target.closest(
+                '.context_menu, .message_action_btn, .conversation_more'
+            )) {
+                return
+            }
+
+            this.closeContextMenu()
+        })
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                this.closeContextMenu()
+            }
+        })
+
+        document.addEventListener('scroll', () => {
+            this.closeContextMenu()
+        }, true)
+
         // ============ PHÓNG TO ẢNH ============
         const lightbox = document.createElement('div')
         lightbox.className = 'image_lightbox'
@@ -3734,9 +4207,8 @@ const chatApp = {
                 window.open(url, '_blank') // dự phòng
             }
         })
-
-
     },
+
 
     start: function () {
 
@@ -3996,6 +4468,10 @@ const chatApp = {
                 this.currentConversation.conversation_id
             )
 
+        })
+
+        this.socket.on('message_recalled', (data) => {
+            this.applyRecall(data.message_id)
         })
 
         // CALL 

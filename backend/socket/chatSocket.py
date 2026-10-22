@@ -1,5 +1,6 @@
 from flask import request
 from flask_socketio import join_room
+from backend.message_helper import get_message_by_id
 
 from backend.extensions import socketio
 from backend.database import get_db
@@ -190,6 +191,16 @@ def handle_send_message(data):
         receiver_id = receiver[
             'user_id'
         ]
+        
+        reply_to_id = data.get('reply_to_id')
+
+        if reply_to_id:
+            cursor.execute(
+                'SELECT id FROM messages WHERE id = %s AND conversation_id = %s',
+                (reply_to_id, conversation_id)
+            )
+            if not cursor.fetchone():
+                reply_to_id = None
 
         # =========================
         # KIỂM TRA ONLINE
@@ -216,15 +227,17 @@ def handle_send_message(data):
                 sender_id,
                 content,
                 message_type,
-                status
+                status,
+                reply_to_id
             )
-            VALUES (%s, %s, %s,'text', %s)
+            VALUES (%s, %s, %s,'text', %s, %s)
             ''',
             (
                 conversation_id,
                 sender_id,
                 content,
-                status
+                status,
+                reply_to_id
             )
         )
 
@@ -241,48 +254,13 @@ def handle_send_message(data):
             ''',
             (conversation_id,)
         )
-        db.commit()
-        # ========================
-        # LẤY LẠI MESSAGE
-        # =========================
         cursor.execute(
-            '''
-            SELECT
-                m.id,
-                m.conversation_id,
-                m.sender_id,
-                u.username AS sender_username,
-                u.avatar AS sender_avatar,
-                m.content,
-                m.message_type,
-                m.status,
-                m.created_at,
-                m.seen_at
-            FROM messages m
-            JOIN users u
-                ON u.id = m.sender_id
-            WHERE m.id = %s
-            ''',
-            (message_id,)
+            'UPDATE conversation_members SET is_deleted = 0 WHERE conversation_id = %s',
+            (conversation_id,)
         )
-        message = cursor.fetchone()
-        # =========================
-        # FORMAT DATETIME
-        # =========================
-        if message['created_at']:
-            message['created_at'] = (
-                message['created_at']
-                .strftime(
-                    '%Y-%m-%d %H:%M:%S'
-                )
-            )
-        if message['seen_at']:
-            message['seen_at'] = (
-                message['seen_at']
-                .strftime(
-                    '%Y-%m-%d %H:%M:%S'
-                )
-            )
+        db.commit()
+        message = get_message_by_id(cursor, message_id)
+        
         # =========================
         # GỬI TIN ĐẾN USER NHẬN
         # ========================
@@ -628,6 +606,11 @@ def save_call_message(
             (
                 conversation_id,
             )
+        )
+        
+        cursor.execute(
+            'UPDATE conversation_members SET is_deleted = 0 WHERE conversation_id = %s',
+            (conversation_id,)
         )
 
         db.commit()

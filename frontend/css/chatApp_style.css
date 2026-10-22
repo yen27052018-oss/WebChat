@@ -2495,3 +2495,184 @@ body {
     background: var(--error-color);
     flex-shrink: 0;
 }
+
+/* ================================ */
+/* ===== NÚT HOVER TRÊN TIN NHẮN ===== */
+.message_row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.message_actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity .15s;
+}
+
+.message_row:hover .message_actions {
+    opacity: 1;
+}
+
+.message_action_btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: var(--white-color);
+    color: #5b6472;
+    font-size: 12px;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
+}
+
+.message_action_btn:hover {
+    color: #2f6fe4;
+}
+
+/* ===== KHUNG TRÍCH DẪN TRONG TIN NHẮN ===== */
+.message_reply {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 6px;
+    padding: 4px 8px;
+    border-left: 3px solid #2f6fe4;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, .06);
+    font-size: 12px;
+    line-height: 16px;
+    cursor: pointer;
+}
+
+.message_reply b {
+    font-weight: 600;
+}
+
+.message_reply span {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #5b6472;
+}
+
+/* ===== TIN NHẮN ĐÃ THU HỒI ===== */
+.message_content.recalled {
+    background: transparent;
+    box-shadow: none;
+    border: 1px dashed #c5cbd6;
+}
+
+.message_recalled {
+    font-style: italic;
+    color: #8a93a3;
+}
+
+/* ===== THANH "TRẢ LỜI" PHÍA TRÊN Ô NHẬP ===== */
+.reply_bar {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    border-left: 3px solid #2f6fe4;
+    border-radius: 6px;
+    background: var(--input-color);
+}
+
+.reply_bar_icon {
+    color: #6f7886;
+    font-size: 12px;
+}
+
+.reply_bar_info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    font-size: 12px;
+    line-height: 16px;
+}
+
+.reply_bar_name {
+    color: var(--black-color);
+}
+
+.reply_bar_text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #7e8795;
+}
+
+.reply_bar_close {
+    border: none;
+    background: none;
+    color: #6f7886;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+/* ===== MENU DROPDOWN DÙNG CHUNG ===== */
+.context_menu {
+    position: fixed;
+    z-index: 30000;
+    min-width: 170px;
+    padding: 6px;
+    border-radius: 10px;
+    background: var(--white-color);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .2);
+}
+
+.context_menu_item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border: none;
+    border-radius: 7px;
+    background: none;
+    color: var(--black-color);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.context_menu_item:hover {
+    background: var(--hover-color);
+}
+
+.context_menu_item.danger {
+    color: #e53935;
+}
+
+.context_menu_item i {
+    width: 16px;
+    text-align: center;
+}
+
+/* ===== NÚT 3 CHẤM Ở CONVERSATION ===== */
+.conversation_more {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: #6f7886;
+    cursor: pointer;
+
+    visibility: hidden;
+}
+
+.conversation_item:hover .conversation_more {
+    visibility: visible;
+}
+
+.conversation_more:hover {
+    background: rgba(0, 0, 0, .1);
+}
