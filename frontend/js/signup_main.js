@@ -3,9 +3,10 @@ const $ = document.querySelector.bind(document)
 const API_URL =
     window.CHAT_WATCH_API_URL ||
     (
-        window.location.port === '5000'
-            ? window.location.origin
-            : `${window.location.protocol}//${window.location.hostname}:5000`
+        // Live Server (5500/5501) thì backend ở cổng 5000, còn lại dùng chính địa chỉ đang mở
+        ['5500', '5501'].includes(window.location.port)
+            ? `${window.location.protocol}//${window.location.hostname}:5000`
+            : window.location.origin
     )
 
 const form = $('.form')

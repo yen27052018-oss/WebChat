@@ -747,7 +747,6 @@ body {
 .conversation_item.active {
     background: rgba(70, 115, 230, 0.14);
 }
-
 .conversation_avatar {
     position: relative;
 

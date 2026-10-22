@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, request, send_from_directory
+from flask import Flask, request, send_from_directory, abort
 from flask_cors import CORS
 from backend.extensions import socketio
 
@@ -86,6 +86,25 @@ def uploaded_file(filename):
         filename
     )
 
+
+# =========================
+# FRONTEND (để dùng 1 tunnel ngrok)
+# =========================
+
+FRONTEND_DIR = os.path.dirname(os.path.dirname(__file__))  # thư mục WEB_Chat
+
+# Chỉ cho phép các trang và thư mục giao diện
+ALLOWED_PAGES = {'login.html', 'signup.html', 'chatApp.html'}
+ALLOWED_FOLDERS = ('frontend/', 'assests/')
+
+
+@app.route('/app/<path:filename>')
+def frontend_file(filename):
+
+    if filename not in ALLOWED_PAGES and not filename.startswith(ALLOWED_FOLDERS):
+        abort(404)
+
+    return send_from_directory(FRONTEND_DIR, filename)
 
 # =========================
 # RUN

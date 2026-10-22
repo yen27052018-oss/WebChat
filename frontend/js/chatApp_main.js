@@ -4,9 +4,10 @@ const LOGIN_STORAGE_KEY = 'CHAT_WATCH_LOGIN'
 const API_URL =
     window.CHAT_WATCH_API_URL ||
     (
-        window.location.port === '5000'
-            ? window.location.origin
-            : `${window.location.protocol}//${window.location.hostname}:5000`
+        // Live Server (5500/5501) thì backend ở cổng 5000, còn lại dùng chính địa chỉ đang mở
+        ['5500', '5501'].includes(window.location.port)
+            ? `${window.location.protocol}//${window.location.hostname}:5000`
+            : window.location.origin
     )
 
 const SOCKET_URL = API_URL
@@ -63,6 +64,7 @@ const notificationClose = $('#closeNotif')
 const notificationList = $('.notifcation_list')
 
 const conversationList = $('.conversation_list')
+const conversationSearch = $('#conversationSearch')
 const chatEmpty = $('#chatEmpty')
 const chatRoom = $('#chatRoom')
 const chatAvatar = $('#chatAvatar')
@@ -97,6 +99,7 @@ const callEnd = $('.call_end')
 const callRemoteVideo = $('.call_remote_video')
 const callLocalVideo = $('.call_local_video')
 
+
 const chatApp = {
     isCallPopupOpen: false,
     isTyping: false,
@@ -107,6 +110,7 @@ const chatApp = {
     currentConversation: null,
     isMicOn: true,
     isVideoOn: false,
+    currentFilter: 'all',
     remoteVideoOn: true,
 
     callType: 'voice',
@@ -1527,6 +1531,83 @@ const chatApp = {
         return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}`
     },
 
+    filterConversation: function () {
+        const keyword = this.removeAccent(conversationSearch.value.trim())
+        const items = conversationList.querySelectorAll('.conversation_item')
+        let visibleCount = 0
+        items.forEach(item => {
+            const name = this.removeAccent(item.querySelector('.conversation_name').textContent.trim());
+            const matchName = name.includes(keyword)
+            const isOpen = this.currentConversation &&
+                String(this.currentConversation.conversation_id) === item.dataset.conversationId
+            const hasDot = item.querySelector('.unread_dot') !== null
+            const matchUnread = this.currentFilter !== 'unread' || hasdot || isOpen
+            const visible = matchName && matchUnread
+            item.style.display = visible ? '' : 'none'
+            if (visible) {
+                visibleCount++;
+            }
+
+        })
+    },
+
+    removeAccent: function (text) {
+        return text
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300 - \u036f]/, '')
+            .replace(/đ/g, 'd')
+    },
+
+    filterConversations: function () {
+
+        const keyword = this.removeAccent(conversationSearch.value.trim())
+        const items = conversationList.querySelectorAll('.conversation_item')
+
+        let visibleCount = 0
+
+        items.forEach(item => {
+
+            // 1. Lọc theo tên
+            const name = this.removeAccent(
+                item.querySelector('.conversation_name').textContent.trim()
+            )
+            const matchName = name.includes(keyword)
+
+            // 2. Lọc chưa đọc: có chấm đỏ, hoặc là cuộc trò chuyện đang mở
+            
+
+            const hasDot = item.querySelector('.unread_dot') !== null
+
+            const matchUnread =
+                this.currentFilter !== 'unread' || hasDot
+
+            // 3. Ẩn / hiện
+            const visible = matchName && matchUnread
+            item.style.display = visible ? '' : 'none'
+
+            if (visible) {
+                visibleCount++
+            }
+        })
+
+        // Thông báo khi không có kết quả
+        const oldMessage = document.getElementById('conversationNoResult')
+
+        if (oldMessage) {
+            oldMessage.remove()
+        }
+
+        if (items.length > 0 && visibleCount === 0) {
+            conversationList.insertAdjacentHTML(
+                'beforeend',
+                `<div class="conversation_empty" id="conversationNoResult">
+                Không tìm thấy cuộc trò chuyện
+            </div>`
+            )
+        }
+    },
+
     loadConversations: async function () {
         try {
             const userId = this.config.user.id
@@ -1641,9 +1722,7 @@ const chatApp = {
                     </div>
                 `
                 }).join('')
-
-
-
+                this.filterConversations()
         } catch (error) {
 
             console.error(error)
@@ -1709,7 +1788,7 @@ const chatApp = {
                     : message.content
         }
 
-                // Cập nhật giờ
+        // Cập nhật giờ
         const timeElement =
             conversationItem.querySelector('.conversation_time')
 
@@ -1739,7 +1818,8 @@ const chatApp = {
             )
         }
 
-        conversationList.prepend( conversationItem )
+        conversationList.prepend(conversationItem)
+        this.filterConversations();
     },
 
     compressImage: function (image) {
@@ -2760,6 +2840,26 @@ const chatApp = {
             this.openConversation(conversation)
         }
 
+        conversationSearch.oninput = () => {
+            this.filterConversations()
+        }
+
+        const filterButtons =
+            document.querySelectorAll('.conversation_filter .filter_item')
+
+        filterButtons.forEach(button => {
+            button.onclick = () => {
+
+                filterButtons.forEach(item => {
+                    item.classList.remove('filter_active')
+                })
+
+                button.classList.add('filter_active')
+
+                this.currentFilter = button.dataset.filter
+                this.filterConversations()
+            }
+        })
         // ==================== SEND MESSAGE ====================
 
         sendMessageBtn.onclick = async () => {
