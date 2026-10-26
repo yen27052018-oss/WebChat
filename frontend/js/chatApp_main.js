@@ -66,6 +66,11 @@ const notificationList = $('.notifcation_list')
 const conversationList = $('.conversation_list')
 const conversationSearch = $('#conversationSearch')
 
+const deleteConversationModal = $('#deleteConversation')
+const closeDeleteConversation = $('#closeDeleteConversation')
+const cancelDeleteConversation = $('#cancelDeleteConversation')
+const confirmDeleteConversation = $('#confirmDeleteConversation')
+
 // Thanh "Trả lời ..." nằm phía trên ô nhập tin nhắn
 const replyBar = document.createElement('div')
 replyBar.className = 'reply_bar'
@@ -115,6 +120,25 @@ const callEnd = $('.call_end')
 const callRemoteVideo = $('.call_remote_video')
 const callLocalVideo = $('.call_local_video')
 
+// list friend
+const friendList = $('#friendList')
+const friendContent = $('.friend_content')
+const messengerChat = $('#messengerPage .chat')
+const friendCount = $('#friendCount')
+const removeFriendModal = $('#removeFriendModal')
+const closeRemoveFriend = $('#closeRemoveFriend')
+const cancelRemoveFriend = $('#cancelRemoveFriend')
+const confirmRemoveFriend = $('#confirmRemoveFriend')
+const removeFriendName = $('#removeFriendName')
+const friendSearch = $('#friendSearch')
+
+const sidebarItems = document.querySelectorAll('.sidebar_item')
+const pageMap = {
+    message: $('#messengerPage'),
+    friend: $('#friendPage')
+    // sau này có trang xem phim / cài đặt thì thêm vào đây
+    // watch: $('#watchPage'),
+}
 
 const chatApp = {
     isCallPopupOpen: false,
@@ -130,6 +154,15 @@ const chatApp = {
     messageMap: {},
     currentFilter: 'all',
     remoteVideoOn: true,
+    deleteConversationId: null,
+    friends: [],
+    removeFriendId: null,
+    resumeFriendChat: false,
+    currentPage: 'message',
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+    typingTimer: null,
+    lastTypingSent: 0,
+    typingHideTimers: {},
 
     callType: 'voice',
 
@@ -153,6 +186,126 @@ const chatApp = {
     conversations: [],
     config: JSON.parse(localStorage.getItem(LOGIN_STORAGE_KEY)) || {},
 
+    // ============ ĐANG NHẮN... ============
+
+    // Người dùng đang gõ: báo cho đối phương (tối đa 1 lần / 2 giây)
+    handleTyping: function () {
+
+        if (!this.currentConversation) {
+            return
+        }
+
+        // Xóa hết chữ thì tắt luôn
+        if (messageInput.value.trim() === '') {
+            clearTimeout(this.typingTimer)
+            this.sendTyping(false)
+            return
+        }
+
+        const now = Date.now()
+
+        if (now - this.lastTypingSent > 2000) {
+            this.sendTyping(true)
+            this.lastTypingSent = now
+        }
+
+        // Ngừng gõ 2.5 giây thì tắt
+        clearTimeout(this.typingTimer)
+        this.typingTimer = setTimeout(() => {
+            this.sendTyping(false)
+        }, 2500)
+    },
+
+    sendTyping: function (isTyping) {
+
+        if (!this.currentConversation) {
+            return
+        }
+
+        if (!isTyping) {
+            this.lastTypingSent = 0
+        }
+
+        this.socket.emit('typing', {
+            conversation_id: this.currentConversation.conversation_id,
+            sender_id: this.config.user.id,
+            receiver_id: this.currentConversation.user.id,
+            is_typing: isTyping
+        })
+    },
+
+    // Nhận tín hiệu đối phương đang gõ / ngừng gõ
+    showTyping: function (conversationId, isTyping) {
+
+        // 1. Ở danh sách conversation
+        const item = conversationList.querySelector(
+            `[data-conversation-id="${conversationId}"]`
+        )
+
+        if (item) {
+
+            const preview = item.querySelector('.conversation_message')
+
+            if (isTyping && !preview.classList.contains('typing')) {
+                preview.dataset.original = preview.innerHTML
+                preview.classList.add('typing')
+            }
+
+            if (!isTyping && preview.classList.contains('typing')) {
+                preview.innerHTML = preview.dataset.original
+                preview.classList.remove('typing')
+            }
+        }
+
+        // 2. Trong khung chat (chỉ khi đang mở đúng cuộc trò chuyện)
+        const isOpen =
+            this.currentConversation &&
+            String(this.currentConversation.conversation_id) ===
+            String(conversationId)
+
+        if (isOpen) {
+
+            if (!isTyping) {
+                this.hideTypingIndicator()
+
+            } else if (!chatBody.querySelector('.typing_indicator')) {
+
+                const nearBottom =
+                    chatBody.scrollHeight - chatBody.scrollTop -
+                    chatBody.clientHeight < 80
+
+                chatBody.insertAdjacentHTML(
+                    'beforeend',
+                    `<div class="typing_indicator">
+                    <span class="typing_dots"><i></i><i></i><i></i></span>
+                </div>`
+                )
+
+                if (nearBottom) {
+                    chatBody.scrollTop = chatBody.scrollHeight
+                }
+            }
+        }
+
+        // 3. Tự tắt sau 4 giây nếu không nhận thêm tín hiệu
+        clearTimeout(this.typingHideTimers[conversationId])
+
+        if (isTyping) {
+            this.typingHideTimers[conversationId] = setTimeout(() => {
+                this.showTyping(conversationId, false)
+            }, 4000)
+        }
+    },
+
+    hideTypingIndicator: function () {
+
+        const indicator = chatBody.querySelector('.typing_indicator')
+
+        if (indicator) {
+            indicator.remove()
+        }
+    },
+    // ==============================================
     setConfig: function (key, value) {
         this.config[key] = value
 
@@ -238,14 +391,26 @@ const chatApp = {
         return `${minutes}:${String(secs).padStart(2, '0')}`
     },
 
+    // Lấy danh sách STUN/TURN từ backend
+    loadIceServers: async function () {
+
+        try {
+            const response = await fetch(`${API_URL}/api/ice-servers`)
+            const servers = await response.json()
+
+            if (Array.isArray(servers) && servers.length > 0) {
+                this.iceServers = servers
+            }
+
+        } catch (error) {
+            console.error('Không lấy được ICE servers:', error)
+        }
+    },
+
     createPeerConnection: function () {
 
         const configuration = {
-            iceServers: [
-                {
-                    urls: 'stun:stun.l.google.com:19302'
-                }
-            ]
+            iceServers: this.iceServers
         }
 
         this.peerConnection =
@@ -1078,7 +1243,7 @@ const chatApp = {
     },
 
     appendMessage: function (message) {
-
+        this.hideTypingIndicator()
         const oldStatus =
             chatBody.querySelectorAll('.message_status')
 
@@ -1459,6 +1624,230 @@ const chatApp = {
         }
     },
 
+    // ============ DANH SÁCH BẠN BÈ ============
+    loadFriends: async function () {
+
+        try {
+            const response = await fetch(
+                `${API_URL}/api/friends?user_id=${this.config.user.id}`
+            )
+
+            const result = await response.json()
+
+            if (!result.success) {
+                console.error(result.message)
+                return
+            }
+
+            this.friends = result.friends
+            this.renderFriends()
+
+        } catch (error) {
+            console.error('Lỗi loadFriends:', error)
+        }
+    },
+
+    renderFriends: function () {
+
+        // Số lượng luôn là tổng số bạn, không phụ thuộc ô tìm kiếm
+        friendCount.textContent = `${this.friends.length} bạn`
+
+        if (this.friends.length === 0) {
+            friendList.innerHTML =
+                '<div class="friend_empty">Bạn chưa có người bạn nào</div>'
+            return
+        }
+
+        // Lọc theo tên
+        const keyword = this.removeAccent(friendSearch.value.trim())
+
+        const filteredFriends = this.friends.filter(friend =>
+            this.removeAccent(friend.username).includes(keyword)
+        )
+
+        if (filteredFriends.length === 0) {
+            friendList.innerHTML =
+                '<div class="friend_empty">Không tìm thấy bạn bè</div>'
+            return
+        }
+
+        friendList.innerHTML = filteredFriends.map(friend => {
+
+            const avatar =
+                !friend.avatar || friend.avatar === 'default_avt.png'
+                    ? './assests/img/default_avt.png'
+                    : `${API_URL}${friend.avatar}`
+
+            return `
+            <div class="friend_item" data-friend-id="${friend.id}">
+                <div class="friend_avatar">
+                    <img src="${avatar}" alt="">
+                </div>
+                <div class="friend_info">
+                    <h3>${friend.username}</h3>
+                </div>
+                <div class="friend_item_actions">
+                    <button class="btn friend_item-act"
+                            data-action="chat" title="Nhắn tin">
+                        <i class="fa-regular fa-comment"></i>
+                    </button>
+                    <button class="btn friend_item-act"
+                            data-action="more" title="Tùy chọn">
+                        <i class="fa-solid fa-ellipsis"></i>
+                    </button>
+                </div>
+            </div>
+        `
+        }).join('')
+    },
+
+    showPage: function (pageName) {
+
+        const page = pageMap[pageName]
+
+        // Icon chưa có trang (watch, setting) hoặc đang ở đúng trang đó
+        if (!page || pageName === this.currentPage) {
+            return
+        }
+
+        // Rời trang Bạn bè khi đang mở chat: nhớ để quay lại thì mở lại chat
+        if (
+            pageName === 'message' &&
+            friendContent.classList.contains('chat_mode')
+        ) {
+            this.resumeFriendChat = true
+            this.leaveFriendChat()
+        }
+
+        // Quay lại trang Bạn bè: nếu trước đó đang mở chat thì hiện lại chat room
+        if (pageName === 'friend') {
+
+            if (this.resumeFriendChat && this.currentConversation) {
+                this.showChatInFriendPage()
+            }
+
+            this.resumeFriendChat = false
+        }
+
+        // Ẩn mọi trang, chỉ hiện trang được chọn
+        document.querySelectorAll('.background_page').forEach(item => {
+            item.classList.remove('active')
+        })
+
+        page.classList.add('active')
+
+        // Đổi highlight ở sidebar
+        sidebarItems.forEach(item => {
+            item.classList.toggle(
+                'sidebar_active',
+                item.dataset.page === pageName
+            )
+        })
+
+        this.currentPage = pageName
+    },
+
+    // Hiện chat room ngay trong trang Bạn bè (thay cho danh sách bạn bè)
+    showChatInFriendPage: function () {
+        friendContent.classList.add('chat_mode')
+        friendContent.appendChild(chatRoom)
+    },
+
+    // Đưa chat room về trang Tin nhắn, nội dung bạn bè hiện lại
+    leaveFriendChat: function () {
+
+        if (!friendContent.classList.contains('chat_mode')) {
+            return
+        }
+
+        friendContent.classList.remove('chat_mode')
+        messengerChat.appendChild(chatRoom)
+    },
+
+    // Bấm nút nhắn tin: mở conversation và chuyển sang trang Tin nhắn
+    // Bấm nút nhắn tin: mở conversation và chuyển sang trang Tin nhắn
+    openChatWithFriend: async function (friendId) {
+        try {
+            const response = await fetch(`${API_URL}/api/conversations/open`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: this.config.user.id,
+                    friend_id: friendId
+                })
+            })
+
+            const result = await response.json()
+
+            if (!result.success) {
+                alert(result.message)
+                return
+            }
+
+            // Tải lại danh sách để conversation (kể cả cái vừa hiện lại) xuất hiện
+            await this.loadConversations()
+
+            // Đưa chat room vào friend_content trước, rồi mới mở conversation
+            this.showChatInFriendPage()
+
+            const item = conversationList.querySelector(
+                `[data-conversation-id="${result.conversation_id}"]`
+            )
+
+            if (item) {
+                item.click()
+            } else {
+                console.error(
+                    'Không thấy conversation trong danh sách:',
+                    result.conversation_id
+                )
+            }
+
+        } catch (error) {
+            console.error('Lỗi mở cuộc trò chuyện:', error)
+            alert('Không thể mở cuộc trò chuyện. Nhấn F12 để xem lỗi chi tiết.')
+        }
+    },
+
+    // ============ XÓA BẠN BÈ ============
+    openRemoveFriend: function (friend) {
+        this.removeFriendId = friend.id
+        removeFriendName.textContent = friend.username
+        removeFriendModal.classList.add('active')
+    },
+
+    closeRemoveFriendModal: function () {
+        this.removeFriendId = null
+        removeFriendModal.classList.remove('active')
+    },
+
+    removeFriend: async function (friendId) {
+
+        try {
+            const response = await fetch(`${API_URL}/api/friends/remove`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: this.config.user.id,
+                    friend_id: friendId
+                })
+            })
+
+            const result = await response.json()
+
+            if (!result.success) {
+                alert(result.message)
+                return
+            }
+
+            // Xóa khỏi danh sách và cập nhật số lượng
+            this.loadFriends()
+
+        } catch (error) {
+            console.error('Lỗi xóa bạn bè:', error)
+        }
+    },
+
     loadFriendRequests: async function () {
 
         try {
@@ -1791,6 +2180,7 @@ const chatApp = {
 
         // Cập nhật preview và chấm đỏ
         this.loadConversations()
+        this.loadFriends()
     },
 
     deleteMessageForMe: async function (messageId) {
@@ -1828,15 +2218,18 @@ const chatApp = {
         }
     },
 
+    openDeleteConversation: function (conversationId) {
+        this.deleteConversationId = conversationId
+        deleteConversationModal.classList.add('active')
+    },
+
+    closeDeleteConversationModal: function () {
+        this.deleteConversationId = null
+        deleteConversationModal.classList.remove('active')
+    },
+
     // ============ XÓA HỘI THOẠI ============
     deleteConversation: async function (conversationId) {
-
-        if (!confirm(
-            'Xóa cuộc hội thoại này?\nToàn bộ tin nhắn sẽ bị xóa khỏi tài khoản của bạn.'
-        )) {
-            return
-        }
-
         try {
             const response = await fetch(`${API_URL}/api/conversations/delete`, {
                 method: 'POST',
@@ -2062,15 +2455,15 @@ const chatApp = {
                                 <span class="conversation_time">
                                     ${timeText}
                                 </span>
+                                <button type="button" class="conversation_more" title="Tùy chọn">
+                                    <i class="fa-solid fa-ellipsis"></i>
+                                </button>
                             </div>
                             <div class="conversation_bottom">
                                 <p class="conversation_message">
                                     ${messagePreview}
                                 </p>
                                 ${unreadDot}
-                                <button type="button" class="conversation_more" title="Tùy chọn">
-                                    <i class="fa-solid fa-ellipsis"></i>
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -2104,6 +2497,10 @@ const chatApp = {
             this.loadConversations()
             return
         }
+
+        conversationItem
+            .querySelector('.conversation_message')
+            .classList.remove('typing')
 
         const messagePreview =
             conversationItem.querySelector(
@@ -2693,7 +3090,7 @@ const chatApp = {
 
                 // Hiện người bạn vừa kết bạn trong Conversation
                 this.loadConversations()
-
+                this.loadFriends()
             } catch (error) {
 
                 console.error(error)
@@ -2862,6 +3259,114 @@ const chatApp = {
             if (e.target === logoutModal) {
                 this.closeLogout()
             }
+        }
+
+        // ============ FORM XÁC NHẬN XÓA HỘI THOẠI ============
+        closeDeleteConversation.onclick = () => {
+            this.closeDeleteConversationModal()
+        }
+
+        cancelDeleteConversation.onclick = () => {
+            this.closeDeleteConversationModal()
+        }
+
+        // Bấm ra nền thì đóng
+        deleteConversationModal.onclick = (e) => {
+            if (e.target === deleteConversationModal) {
+                this.closeDeleteConversationModal()
+            }
+        }
+
+        // Bấm "Xóa" thì mới xóa thật
+        confirmDeleteConversation.onclick = async () => {
+
+            const conversationId = this.deleteConversationId
+
+            if (!conversationId) {
+                return
+            }
+
+            this.closeDeleteConversationModal()
+
+            await this.deleteConversation(conversationId)
+        }
+        //  =================================
+        // ============ DANH SÁCH BẠN BÈ ============
+        friendList.onclick = (e) => {
+
+            const button = e.target.closest('.friend_item-act')
+
+            if (!button) {
+                return
+            }
+
+            const item = button.closest('.friend_item')
+
+            const friend = this.friends.find(
+                friend => String(friend.id) === item.dataset.friendId
+            )
+
+            if (!friend) {
+                return
+            }
+
+            // Nút 1: nhắn tin
+            if (button.dataset.action === 'chat') {
+                this.openChatWithFriend(friend.id)
+                return
+            }
+
+            // Nút 2: popup xóa bạn bè
+            this.showContextMenu(button, [
+                {
+                    icon: 'fa-user-xmark',
+                    text: 'Xóa bạn bè',
+                    danger: true,
+                    onClick: () => this.openRemoveFriend(friend)
+                }
+            ])
+        }
+
+        // Bấm menu bên trái trang Bạn bè -> thoát chat, quay lại nội dung bạn bè
+        document.querySelectorAll('.friend_menu_item').forEach(menuItem => {
+            menuItem.addEventListener('click', () => {
+                this.resumeFriendChat = false
+                this.leaveFriendChat()
+            })
+        })
+
+        // ============ CHUYỂN TRANG THEO SIDEBAR ============
+        sidebarItems.forEach(item => {
+            item.addEventListener('click', () => {
+                this.showPage(item.dataset.page)
+            })
+        })
+        // ============ DIALOG XÁC NHẬN XÓA BẠN ============
+        closeRemoveFriend.onclick = () => {
+            this.closeRemoveFriendModal()
+        }
+
+        cancelRemoveFriend.onclick = () => {
+            this.closeRemoveFriendModal()
+        }
+
+        removeFriendModal.onclick = (e) => {
+            if (e.target === removeFriendModal) {
+                this.closeRemoveFriendModal()
+            }
+        }
+
+        confirmRemoveFriend.onclick = async () => {
+
+            const friendId = this.removeFriendId
+
+            if (!friendId) {
+                return
+            }
+
+            this.closeRemoveFriendModal()
+
+            await this.removeFriend(friendId)
         }
 
         // ==================== AVATAR ====================
@@ -3186,7 +3691,7 @@ const chatApp = {
                         icon: 'fa-trash',
                         text: 'Xóa hội thoại',
                         danger: true,
-                        onClick: () => this.deleteConversation(itemId)
+                        onClick: () => this.openDeleteConversation(itemId)
                     }
                 ])
 
@@ -3198,6 +3703,9 @@ const chatApp = {
             if (!conversationItem) {
                 return
             }
+
+            // Người dùng tự chọn conversation ở trang Tin nhắn -> không tự mở lại chat ở trang Bạn bè
+            this.resumeFriendChat = false
 
             const conversationId =
                 conversationItem.dataset.conversationId
@@ -3263,6 +3771,9 @@ const chatApp = {
             if (!this.currentConversation) {
                 return
             }
+
+            clearTimeout(this.typingTimer)
+            this.sendTyping(false)
 
             this.socket.emit('send_message', {
 
@@ -4025,15 +4536,15 @@ const chatApp = {
             ])
         },
 
-        replyBar.querySelector('.reply_bar_close').onclick = () => {
-            this.clearReply()
-        }
+            replyBar.querySelector('.reply_bar_close').onclick = () => {
+                this.clearReply()
+            }
 
         // Đóng menu khi bấm ra ngoài, nhấn Esc hoặc cuộn
         document.addEventListener('click', (event) => {
 
             if (event.target.closest(
-                '.context_menu, .message_action_btn, .conversation_more'
+                '.context_menu, .message_action_btn, .conversation_more, .friend_item-act'
             )) {
                 return
             }
@@ -4206,6 +4717,14 @@ const chatApp = {
                 console.error('Không tải được file:', error)
                 window.open(url, '_blank') // dự phòng
             }
+        })
+
+        friendSearch.oninput = () => {
+            this.renderFriends()
+        }
+
+        messageInput.addEventListener('input', () => {
+            this.handleTyping()
         })
     },
 
@@ -4387,6 +4906,9 @@ const chatApp = {
                     : 'Đang ngoại tuyến'
         })
 
+        this.socket.on('typing', (data) => {
+            this.showTyping(data.conversation_id, data.is_typing)
+        })
 
         this.socket.on('new_message', async (message) => {
 
@@ -4441,7 +4963,12 @@ const chatApp = {
         this.socket.on('friend_accepted', () => {
 
             this.loadConversations()
+            this.loadFriends()
 
+        })
+
+        this.socket.on('friend_removed', () => {
+            this.loadFriends()
         })
 
         this.socket.on('message_status', (data) => {
@@ -4738,6 +5265,9 @@ const chatApp = {
         // Kiểm tra lời mời ngay khi mở trang
         this.loadFriendRequests()
         this.loadConversations()
+        this.loadFriends()
+        this.loadIceServers()
+        setInterval(() => { this.loadIceServers() }, 30 * 60 * 1000)
         setInterval(() => { this.loadFriendRequests() }, 10000)
     }
 }

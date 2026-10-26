@@ -727,6 +727,7 @@ body {
 
     display: flex;
     align-items: center;
+    line-height: 1;
 
     gap: 11px;
 
@@ -792,6 +793,9 @@ body {
     flex: 1;
 }
 
+.conversation_top{
+    height:18px
+}
 
 .conversation_top,
 .conversation_bottom {
@@ -2657,22 +2661,91 @@ body {
 
 /* ===== NÚT 3 CHẤM Ở CONVERSATION ===== */
 .conversation_more {
+    display: none;
     flex-shrink: 0;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 18px;
+    padding: 0;
     border: none;
-    border-radius: 50%;
+    border-radius: 6px;
     background: transparent;
     color: #6f7886;
     cursor: pointer;
+}
 
-    visibility: hidden;
+.conversation_item:hover .conversation_time {
+    display: none;
 }
 
 .conversation_item:hover .conversation_more {
-    visibility: visible;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .conversation_more:hover {
     background: rgba(0, 0, 0, .1);
+}
+
+.friend_empty {
+    padding: 30px;
+    text-align: center;
+    color: #7e8795;
+    font-size: 14px;
+}
+
+/* Chat room hiển thị trong trang Bạn bè */
+.friend_content.chat_mode {
+    padding: 0;
+    overflow: hidden;
+}
+
+.friend_content.chat_mode .friend_section {
+    display: none !important;
+}
+
+/* ===== ĐANG NHẮN... ===== */
+.typing_indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    margin: 6px 0 6px 8px;
+    padding: 7px 12px;
+    border-radius: 14px;
+    background: var(--white-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
+}
+
+.typing_dots {
+    display: flex;
+    gap: 3px;
+}
+
+.typing_dots i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #8a93a3;
+    animation: typing_bounce 1.2s infinite ease-in-out;
+}
+
+.typing_dots i:nth-child(2) { animation-delay: .2s; }
+.typing_dots i:nth-child(3) { animation-delay: .4s; }
+
+.typing_text {
+    font-size: 12px;
+    font-style: italic;
+    color: #7e8795;
+}
+
+@keyframes typing_bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: .5; }
+    30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* Dòng xem trước trong danh sách conversation */
+.conversation_message.typing {
+    color: #2f6fe4;
+    font-style: italic;
 }

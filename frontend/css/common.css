@@ -102,7 +102,8 @@
     min-width: 88px;
     background: #29313d;
 
-    font-size: 14px;
+    font-size: 14px;    
+    font-weight: 600;
     color: #fff;
 
     cursor: pointer;
@@ -118,6 +119,14 @@
 
 .hide {
     display: none;
+}
+
+.btn-delete{
+    background: red;
+}
+.btn-no{
+    background: #e5e7eb;
+    color:var(--black-color);
 }
 
 .btn-small{

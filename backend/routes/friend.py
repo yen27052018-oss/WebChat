@@ -482,3 +482,216 @@ def get_conversations():
 
         cursor.close()
         db.close()
+        
+# ============================
+
+# =========================
+# DANH SÁCH BẠN BÈ
+# =========================
+@friend_bp.route('/api/friends', methods=['GET'])
+def get_friends():
+
+    user_id = request.args.get('user_id')
+
+    if not user_id:
+        return jsonify({'success': False, 'message': 'Thiếu user_id'}), 400
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    try:
+        # Bạn bè = lời mời đã được chấp nhận (người gửi hoặc người nhận đều là tôi)
+        cursor.execute(
+            '''
+            SELECT u.id, u.userid, u.username, u.avatar
+            FROM friend_requests fr
+            JOIN users u
+                ON u.id = IF(fr.sender_id = %s, fr.receiver_id, fr.sender_id)
+            WHERE fr.status = 'accepted'
+                AND (fr.sender_id = %s OR fr.receiver_id = %s)
+            ORDER BY u.username ASC
+            ''',
+            (user_id, user_id, user_id)
+        )
+
+        return jsonify({
+            'success': True,
+            'friends': cursor.fetchall()
+        }), 200
+
+    except Exception as error:
+        print(error)
+        return jsonify({
+            'success': False,
+            'message': 'Không thể lấy danh sách bạn bè'
+        }), 500
+
+    finally:
+        cursor.close()
+        db.close()
+
+
+# =========================
+# MỞ CONVERSATION VỚI BẠN BÈ
+# =========================
+@friend_bp.route('/api/conversations/open', methods=['POST'])
+def open_conversation_with_friend():
+
+    data = request.get_json()
+    user_id = data.get('user_id')
+    friend_id = data.get('friend_id')
+
+    if not user_id or not friend_id:
+        return jsonify({'success': False, 'message': 'Thiếu thông tin'}), 400
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    try:
+        # 1. Hai người phải là bạn bè
+        cursor.execute(
+            '''
+            SELECT id FROM friend_requests
+            WHERE status = 'accepted'
+                AND (
+                    (sender_id = %s AND receiver_id = %s)
+                    OR (sender_id = %s AND receiver_id = %s)
+                )
+            LIMIT 1
+            ''',
+            (user_id, friend_id, friend_id, user_id)
+        )
+
+        if not cursor.fetchone():
+            return jsonify({
+                'success': False,
+                'message': 'Hai người chưa là bạn bè'
+            }), 403
+
+        # 2. Tìm conversation private của hai người
+        cursor.execute(
+            '''
+            SELECT c.id
+            FROM conversations c
+            JOIN conversation_members cm1
+                ON c.id = cm1.conversation_id
+            JOIN conversation_members cm2
+                ON c.id = cm2.conversation_id
+            WHERE c.type = 'private'
+                AND cm1.user_id = %s
+                AND cm2.user_id = %s
+            LIMIT 1
+            ''',
+            (user_id, friend_id)
+        )
+
+        conversation = cursor.fetchone()
+
+        if conversation:
+
+            conversation_id = conversation['id']
+
+            # Nếu bạn đã xóa conversation này thì cho hiện lại
+            # (tin nhắn cũ vẫn ẩn, nên là một cuộc trò chuyện trống)
+            cursor.execute(
+                '''
+                UPDATE conversation_members
+                SET is_deleted = 0
+                WHERE conversation_id = %s AND user_id = %s
+                ''',
+                (conversation_id, user_id)
+            )
+
+        else:
+
+            # Chưa có thì tạo mới
+            cursor.execute("INSERT INTO conversations (type) VALUES ('private')")
+            conversation_id = cursor.lastrowid
+
+            for member_id in (user_id, friend_id):
+                cursor.execute(
+                    '''
+                    INSERT INTO conversation_members (conversation_id, user_id)
+                    VALUES (%s, %s)
+                    ''',
+                    (conversation_id, member_id)
+                )
+
+        db.commit()
+
+        return jsonify({
+            'success': True,
+            'conversation_id': conversation_id
+        }), 200
+
+    except Exception as error:
+        db.rollback()
+        print(error)
+        return jsonify({
+            'success': False,
+            'message': 'Không thể mở cuộc trò chuyện'
+        }), 500
+
+    finally:
+        cursor.close()
+        db.close()
+
+
+# =========================
+# XÓA BẠN BÈ
+# =========================
+@friend_bp.route('/api/friends/remove', methods=['POST'])
+def remove_friend():
+
+    data = request.get_json()
+    user_id = data.get('user_id')
+    friend_id = data.get('friend_id')
+
+    if not user_id or not friend_id:
+        return jsonify({'success': False, 'message': 'Thiếu thông tin'}), 400
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    try:
+        # Xóa dòng lời mời đã chấp nhận -> hai người có thể kết bạn lại sau này
+        cursor.execute(
+            '''
+            DELETE FROM friend_requests
+            WHERE status = 'accepted'
+                AND (
+                    (sender_id = %s AND receiver_id = %s)
+                    OR (sender_id = %s AND receiver_id = %s)
+                )
+            ''',
+            (user_id, friend_id, friend_id, user_id)
+        )
+
+        if cursor.rowcount == 0:
+            return jsonify({
+                'success': False,
+                'message': 'Hai người chưa là bạn bè'
+            }), 404
+
+        db.commit()
+
+        # Báo cho người kia cập nhật danh sách bạn bè
+        socketio.emit(
+            'friend_removed',
+            {'user_id': int(user_id)},
+            to=f'user_{friend_id}'
+        )
+
+        return jsonify({'success': True}), 200
+
+    except Exception as error:
+        db.rollback()
+        print(error)
+        return jsonify({
+            'success': False,
+            'message': 'Không thể xóa bạn bè'
+        }), 500
+
+    finally:
+        cursor.close()
+        db.close()

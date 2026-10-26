@@ -186,7 +186,6 @@
 
                         <!-- Danh sách được JS render -->
                         <div class="conversation_list" id="conversationList">
-
                         </div>
                     </section>
 
@@ -312,21 +311,10 @@
                                 </div>
                                 <i class="fa-solid fa-angle-right"></i>
                             </button>
-                            <button class="friend_menu_item" data-friend-page="requests">
-                                <div class="friend_menu_icon">
-                                    <i class="fa-solid fa-user-plus"></i>
-                                </div>
-                                <div class="friend_menu_text">
-                                    <span>Lời mời kết bạn</span>
-                                    <small id="requestCount">0 lời mời</small>
-                                </div>
-                                <i class="fa-solid fa-angle-right"></i>
-                                <!-- <span class="friend_request_badge">2</span> -->
-                            </button>
                         </div>
                     </aside>
                     <section class="friend_content">
-                        <div class="friend_section" id="friendListPage">
+                        <div class="friend_section active" id="friendListPage">
                             <div class="friend_content_header">
                                 <div>
                                     <h1>Bạn bè của bạn</h1>
@@ -342,41 +330,10 @@
                                 <input type="text" id="friendSearch" placeholder="Tìm kiếm bạn bè...">
                             </div>
                             <div class="friend_list" id="friendList">
-                                <div class="friend_item">
-                                    <div class="friend_avatar">
-                                        <img src="./assests/img/default_avt.png" alt="">
-                                    </div>
-                                    <div class="friend_info">
-                                        <h3>Nguyễn Văn A</h3>
-                                    </div>
-                                    <div class="friend_item_actions">
-                                        <button class="btn friend_item-act" title="Nhắn tin">
-                                            <i class="fa-regular fa-comment"></i>
-                                        </button>
-                                        <button class="btn friend_item-act" title="Xem thông tin">
-                                            <i class="fa-solid fa-ellipsis"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="friend_item">
-                                    <div class="friend_avatar">
-                                        <img src="./assests/img/default_avt.png" alt="">
-                                    </div>
-                                    <div class="friend_info">
-                                        <h3>Nguyễn Văn A</h3>
-                                    </div>
-                                    <div class="friend_item_actions">
-                                        <button class="btn friend_item-act" title="Nhắn tin">
-                                            <i class="fa-regular fa-comment"></i>
-                                        </button>
-                                        <button class="btn friend_item-act" title="Xem thông tin">
-                                            <i class="fa-solid fa-ellipsis"></i>
-                                        </button>
-                                    </div>
-                                </div>
+                            
                             </div>
                         </div>
-                        <div class="friend_section active" id="groupListPage">
+                        <div class="friend_section" id="groupListPage">
                             <div class="friend_content_header">
                                 <div>
                                     <h1>Nhóm của tôi</h1>
@@ -402,54 +359,6 @@
                                         </button>
                                         <button>
                                             <i class="fa-solid fa-ellipsis"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="friend_section" id="friendRequestPage">
-                            <div class="friend_content_header">
-                                <div>
-                                    <h1>Lời mời kết bạn</h1>
-                                    <p>Quản lý những lời mời kết bạn đang chờ xử lý.</p>
-                                </div>
-                            </div>
-                            <div class="friend_list">
-                                <div class="friend_item">
-                                    <div class="friend_avatar">
-                                        <img src="./assests/img/default_avt.png" alt="">
-                                    </div>
-                                    <div class="friend_info">
-                                        <h3>Lê Minh C</h3>
-                                        <p>Muốn kết bạn với bạn</p>
-                                    </div>
-                                    <div class="request_actions">
-                                        <button class="request_accept">
-                                            <i class="fa-solid fa-check"></i>
-                                            Chấp nhận
-                                        </button>
-                                        <button class="request_reject">
-                                            <i class="fa-solid fa-xmark"></i>
-                                            Từ chối
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="friend_item">
-                                    <div class="friend_avatar">
-                                        <img src="./assests/img/default_avt.png" alt="">
-                                    </div>
-                                    <div class="friend_info">
-                                        <h3>Phạm Văn D</h3>
-                                        <p>Muốn kết bạn với bạn</p>
-                                    </div>
-                                    <div class="request_actions">
-                                        <button class="request_accept">
-                                            <i class="fa-solid fa-check"></i>
-                                            Chấp nhận
-                                        </button>
-                                        <button class="request_reject">
-                                            <i class="fa-solid fa-xmark"></i>
-                                            Từ chối
                                         </button>
                                     </div>
                                 </div>
@@ -641,7 +550,53 @@
             </div>
         </div>
     </div>
-
+    <!-- Delete Conversation -->
+    <div class="modal_overlay" id="deleteConversation">
+        <div class="modal_layout dialog">
+            <div class="modal_header dialog_header">
+                <h2>Xác nhận</h2>
+                <button class="modal_close" id="closeDeleteConversation">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="separate modal_separate"></div>
+            <div class="dialog_container">
+                <p class="dialog_content">
+                    Nội dung của cuộc trò chuyện sẽ bị xóa vĩnh viễn.
+                    <br>
+                    Bạn có chắc chắn muốn xóa ?
+                    </br>
+                </p>
+                <div class="dialog_btn">
+                    <button class="btn btn-no" id="cancelDeleteConversation">Không</button>
+                    <button class="btn btn-delete" id="confirmDeleteConversation">Xóa</button>
+                </div>
+            </div>
+        </div>
+    </div>
+        <!-- Delete Friend -->
+    <div class="modal_overlay" id="removeFriendModal">
+        <div class="modal_layout dialog">
+            <div class="modal_header dialog_header">
+                <h2>Xác nhận</h2>
+                <button class="modal_close" id="closeRemoveFriend">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="separate modal_separate"></div>
+            <div class="dialog_container">
+                <p class="dialog_content">
+                    Bạn có chắc chắn muốn xóa
+                    <strong id="removeFriendName"></strong>
+                    khỏi danh sách bạn bè?
+                </p>
+                <div class="dialog_btn">
+                    <button class="btn btn-no" id="cancelRemoveFriend">Không</button>
+                    <button class="btn btn-delete" id="confirmRemoveFriend">Xóa</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Incoming call -->
     <div class="call_overlay">

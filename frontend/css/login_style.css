@@ -29,12 +29,6 @@ body{
     display: none;
 }
 
-.error{
-    display: block;
-    font-size: 14px;
-    margin: 10px 0 -15px 0;
-    color:#D32F2F;
-}
 
 .login_container{
     width:1200px;

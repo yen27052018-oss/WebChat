@@ -1520,3 +1520,21 @@ def handle_call_video_toggle(data):
         },
         room=f'user_{target_user_id}'
     )
+    
+@socketio.on('typing')
+def handle_typing(data):
+
+    receiver_id = data.get('receiver_id')
+
+    if not receiver_id:
+        return
+
+    socketio.emit(
+        'typing',
+        {
+            'conversation_id': data.get('conversation_id'),
+            'sender_id': data.get('sender_id'),
+            'is_typing': bool(data.get('is_typing'))
+        },
+        room=f'user_{receiver_id}'
+    )  

@@ -1,6 +1,7 @@
 import os
 
-from flask import Flask, request, send_from_directory, abort
+
+from flask import Flask, request, send_from_directory, abort, redirect, jsonify
 from flask_cors import CORS
 from backend.extensions import socketio
 
@@ -54,12 +55,48 @@ app.register_blueprint(
 @app.route('/')
 def home():
 
-    return (
-        'CHAT & WATCH Backend '
-        'đang hoạt động!'
-    )
+    return redirect('/app/login.html')
 
+# =========================
+# ICE SERVERS (STUN + TURN cho gọi điện)
+# =========================
 
+@app.route('/api/ice-servers')
+def ice_servers():
+
+    # Mặc định: chỉ STUN (đủ cho mạng LAN)
+    servers = [{'urls': 'stun:stun.l.google.com:19302'}]
+
+    username = os.getenv('TURN_USERNAME')
+    password = os.getenv('TURN_PASSWORD')
+
+    # Có TURN thì dùng thêm để gọi được khi khác mạng / qua ngrok
+    if username and password:
+        servers = [
+            {'urls': 'stun:stun.relay.metered.ca:80'},
+            {
+                'urls': 'turn:global.relay.metered.ca:80',
+                'username': username,
+                'credential': password
+            },
+            {
+                'urls': 'turn:global.relay.metered.ca:80?transport=tcp',
+                'username': username,
+                'credential': password
+            },
+            {
+                'urls': 'turn:global.relay.metered.ca:443',
+                'username': username,
+                'credential': password
+            },
+            {
+                'urls': 'turns:global.relay.metered.ca:443?transport=tcp',
+                'username': username,
+                'credential': password
+            }
+        ]
+
+    return jsonify(servers)
 # =========================
 # UPLOADS
 # =========================
