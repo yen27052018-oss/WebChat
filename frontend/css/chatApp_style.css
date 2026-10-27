@@ -2749,3 +2749,51 @@ body {
     color: #2f6fe4;
     font-style: italic;
 }
+
+/* Tin nhắn có xuống dòng (cần cho phản hồi của AI) */
+.message_content p {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* ===== ẢNH KÈM TIN NHẮN ===== */
+.image_preview_bar {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: var(--input-color);
+}
+
+.image_preview_thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.image_preview_name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: #7e8795;
+}
+
+.image_preview_close {
+    border: none;
+    background: none;
+    color: #6f7886;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+/* Lời nhắn nằm dưới ảnh, rộng tối đa bằng ảnh */
+.message_caption {
+    max-width: 300px;
+    padding: 8px 10px 9px;
+}

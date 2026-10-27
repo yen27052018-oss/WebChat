@@ -370,7 +370,7 @@ def search_user():
                 OR BINARY u.userid LIKE BINARY %s
             )
             AND u.id != %s
-
+            AND u.is_bot = 0
             ORDER BY u.username
             ''',
             (

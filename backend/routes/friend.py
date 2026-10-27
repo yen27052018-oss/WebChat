@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from backend.database import get_db
 from backend.extensions import socketio
+from backend.ai_service import ensure_ai_conversation
 
 friend_bp = Blueprint('friend', __name__)
 
@@ -31,7 +32,7 @@ def send_friend_request():
             '''
             SELECT id
             FROM users
-            WHERE userid = %s
+            WHERE userid = %s AND is_bot = 0
             ''',
             (sender_userid,)
         )
@@ -353,6 +354,7 @@ def accept_friend_request():
         
 @friend_bp.route('/api/conversations', methods=['GET'])
 def get_conversations():
+    
     print('>>> get_conversations V2 đang chạy')
     user_id = request.args.get('user_id')
 
@@ -364,7 +366,8 @@ def get_conversations():
 
     db = get_db()
     cursor = db.cursor(dictionary=True)
-
+    # Đảm bảo người dùng luôn có conversation với AI
+    ensure_ai_conversation(db, cursor, user_id)
     try:
 
         cursor.execute(
@@ -397,7 +400,8 @@ def get_conversations():
                     u.id,
                     u.userid,
                     u.username,
-                    u.avatar
+                    u.avatar,
+                    u.is_bot
                 FROM conversation_members cm
                 JOIN users u
                     ON u.id = cm.user_id
@@ -463,7 +467,8 @@ def get_conversations():
                 'last_message': last_message,
                 'unread_count': unread_count
             })
-
+            
+        result.sort(key=lambda item: 0 if item['user'].get('is_bot') else 1)
         return jsonify({
             'success': True,
             'conversations': result

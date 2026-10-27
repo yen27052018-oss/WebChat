@@ -1,6 +1,7 @@
 from flask import request
 from flask_socketio import join_room
 from backend.message_helper import get_message_by_id
+from backend.ai_service import maybe_reply_ai
 
 from backend.extensions import socketio
 from backend.database import get_db
@@ -301,7 +302,9 @@ def handle_send_message(data):
             room=sender_room
         )
 
-
+        # Người nhận là AI thì AI trả lời
+        maybe_reply_ai(conversation_id, sender_id, receiver_id, message_id)
+        
         print(
             f'Đã lưu tin nhắn {message_id}'
             f' - status: {status}'

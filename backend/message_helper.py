@@ -7,6 +7,7 @@ MESSAGE_SELECT = '''
         u.avatar AS sender_avatar,
         m.content,
         m.file_name,
+        m.caption,
         m.message_type,
         m.call_type,
         m.call_duration,

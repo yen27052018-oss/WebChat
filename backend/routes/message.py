@@ -2,7 +2,8 @@ from flask import Blueprint, request, jsonify
 from backend.database import get_db
 from backend.extensions import socketio
 from backend.socket.chatSocket import online_users
-from backend.message_helper import MESSAGE_SELECT, format_message
+from backend.message_helper import MESSAGE_SELECT, format_message, get_message_by_id
+from backend.ai_service import maybe_reply_ai, reset_ai_conversation, is_ai_conversation
 
 import os
 import uuid
@@ -185,6 +186,7 @@ def send_message():
     image = request.files.get('image')
     file = request.files.get('file')
     voice = request.files.get('voice')
+    caption = request.form.get('caption', '').strip()
     
     file_name = None
 
@@ -365,23 +367,18 @@ def send_message():
                 sender_id,
                 content,
                 file_name,
+                caption,
                 message_type,
                 status
             )
-            VALUES (
-                %s,
-                %s,
-                %s,
-                %s,
-                %s,
-                %s
-            )
+            VALUES (%s,%s,%s,%s,%s,%s,%s)
             ''',
             (
                 conversation_id,
                 sender_id,
                 content,
                 file_name,
+                (caption or None) if image else None,
                 message_type,
                 status
             )
@@ -407,38 +404,7 @@ def send_message():
 
         db.commit()
 
-        # Lấy lại tin nhắn vừa gửi
-        cursor.execute(
-            '''
-            SELECT
-                id,
-                conversation_id,
-                sender_id,
-                content,
-                file_name,
-                message_type,
-                status,
-                created_at,
-                seen_at
-            FROM messages
-            WHERE id = %s
-            ''',
-            (message_id,)
-        )
-
-        message = cursor.fetchone()
-
-        if message['created_at']:
-            message['created_at'] = \
-                message['created_at'].strftime(
-                    '%Y-%m-%d %H:%M:%S'
-                )
-
-        if message['seen_at']:
-            message['seen_at'] = \
-                message['seen_at'].strftime(
-                    '%Y-%m-%d %H:%M:%S'
-                )
+        message = get_message_by_id(cursor, message_id)
 
         # Lấy người nhận
         cursor.execute(
@@ -467,6 +433,9 @@ def send_message():
                 message,
                 room=f'user_{receiver_id}'
             )
+            
+            # Người nhận là AI thì AI trả lời
+            maybe_reply_ai(conversation_id, sender_id, receiver_id, message['id'])
         
         return jsonify({
             'success': True,
@@ -636,6 +605,12 @@ def delete_conversation():
         if not cursor.fetchone():
             return jsonify({'success': False, 'message': 'Không có quyền'}), 403
 
+        if is_ai_conversation(cursor, conversation_id):
+            return jsonify({
+                'success': False,
+                'message': 'Không thể xóa cuộc trò chuyện với AI'
+            }), 403
+        
         # Ẩn toàn bộ tin nhắn hiện có với người dùng này
         cursor.execute(
             '''
@@ -663,6 +638,41 @@ def delete_conversation():
         db.rollback()
         print(error)
         return jsonify({'success': False, 'message': 'Không thể xóa hội thoại'}), 500
+
+    finally:
+        cursor.close()
+        db.close()
+        
+# =========================
+# LÀM MỚI CUỘC TRÒ CHUYỆN VỚI AI
+# =========================
+@message_bp.route('/api/ai/reset', methods=['POST'])
+def reset_ai_chat():
+
+    data = request.get_json()
+    user_id = data.get('user_id')
+
+    if not user_id:
+        return jsonify({'success': False, 'message': 'Thiếu user_id'}), 400
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    try:
+        conversation_id = reset_ai_conversation(db, cursor, user_id)
+
+        return jsonify({
+            'success': True,
+            'conversation_id': conversation_id
+        }), 200
+
+    except Exception as error:
+        db.rollback()
+        print(error)
+        return jsonify({
+            'success': False,
+            'message': 'Không thể làm mới cuộc trò chuyện'
+        }), 500
 
     finally:
         cursor.close()

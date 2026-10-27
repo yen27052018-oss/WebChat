@@ -84,6 +84,18 @@ replyBar.innerHTML = `
         <i class="fa-solid fa-xmark"></i>
     </button>
 `
+// Thanh xem trước ảnh trước khi gửi
+const imagePreviewBar = document.createElement('div')
+imagePreviewBar.className = 'image_preview_bar'
+imagePreviewBar.innerHTML = `
+    <img class="image_preview_thumb" alt="">
+    <span class="image_preview_name"></span>
+    <button type="button" class="image_preview_close" title="Bỏ ảnh">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+`
+$('.chat_input').before(imagePreviewBar)
+
 $('.chat_input').before(replyBar)
 
 const chatEmpty = $('#chatEmpty')
@@ -140,6 +152,8 @@ const pageMap = {
     // watch: $('#watchPage'),
 }
 
+const refreshAiBtn = $('#btnRefreshAi')
+
 const chatApp = {
     isCallPopupOpen: false,
     isTyping: false,
@@ -163,6 +177,8 @@ const chatApp = {
     typingTimer: null,
     lastTypingSent: 0,
     typingHideTimers: {},
+    pendingImage: null,
+    pendingImageUrl: null,
 
     callType: 'voice',
 
@@ -306,6 +322,13 @@ const chatApp = {
         }
     },
     // ==============================================
+
+    escapeHtml: function (text) {
+        return String(text ?? '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    },
+
     setConfig: function (key, value) {
         this.config[key] = value
 
@@ -524,6 +547,107 @@ const chatApp = {
                     )
                 }
             }
+    },
+
+    // ============ GỬI ẢNH KÈM TIN NHẮN ============
+
+    // Chọn ảnh: hiện xem trước, chờ người dùng bấm gửi
+    stageImage: function (file, name) {
+
+        this.clearPendingImage()
+
+        this.pendingImage = file
+        this.pendingImageUrl = URL.createObjectURL(file)
+
+        imagePreviewBar.querySelector('.image_preview_thumb').src =
+            this.pendingImageUrl
+
+        imagePreviewBar.querySelector('.image_preview_name').textContent =
+            name || 'Ảnh'
+
+        imagePreviewBar.style.display = 'flex'
+        messageInput.focus()
+    },
+
+    clearPendingImage: function () {
+
+        if (this.pendingImageUrl) {
+            URL.revokeObjectURL(this.pendingImageUrl)
+        }
+
+        this.pendingImage = null
+        this.pendingImageUrl = null
+        imagePreviewBar.style.display = 'none'
+    },
+
+    sendImageMessage: async function (image, previewUrl, caption) {
+
+        const conversationId = this.currentConversation.conversation_id
+
+        chatBody.querySelectorAll('.message_status').forEach(status => {
+            status.remove()
+        })
+
+        // Hiện ngay ảnh (kèm lời nhắn) trong lúc chờ gửi
+        chatBody.insertAdjacentHTML(
+            'beforeend',
+            `
+        <div class="message sent message_pending">
+            <div class="message_content">
+                <img class="message_image" src="${previewUrl}" alt="Ảnh đang gửi">
+                ${caption
+                ? `<p class="message_caption">${this.escapeHtml(caption)}</p>`
+                : ''}
+            </div>
+            <span class="message_status">Đang gửi...</span>
+        </div>
+        `
+        )
+
+        const pending = chatBody.lastElementChild
+
+        pending.scrollIntoView({ behavior: 'smooth', block: 'end' })
+
+        try {
+            const formData = new FormData()
+
+            formData.append('conversation_id', conversationId)
+            formData.append('sender_id', this.config.user.id)
+            formData.append('image', image)
+            formData.append('caption', caption)
+
+            const response = await fetch(`${API_URL}/api/messages`, {
+                method: 'POST',
+                body: formData
+            })
+
+            const result = await response.json()
+
+            if (!result.success) {
+                pending.remove()
+                alert(result.message)
+                return
+            }
+
+            // Chỉ tải lại khung chat nếu người dùng vẫn đang ở cuộc trò chuyện đó
+            if (
+                this.currentConversation &&
+                this.currentConversation.conversation_id === conversationId
+            ) {
+                await this.loadMessages(conversationId)
+            }
+
+            await this.loadConversations()
+
+        } catch (error) {
+
+            console.error('Lỗi gửi ảnh:', error)
+            pending.remove()
+            alert('Không thể gửi ảnh. Vui lòng thử lại.')
+
+        } finally {
+            URL.revokeObjectURL(previewUrl)
+        }
     },
 
     // getLocalStream: async function () {
@@ -1081,23 +1205,12 @@ const chatApp = {
                                     class="message_image"
                                     src="${message.content}"
                                     alt="Ảnh đã gửi"
-                                >`
+                                >
+                                ${message.caption
+                                    ? `<p class="message_caption">${this.escapeHtml(message.caption)}</p>`
+                                    : ''}`
                             : message.message_type === 'file'
                                 ?
-                                // `
-                                //     <a
-                                //         class="message_file"
-                                //         href="${message.content}"
-                                //         target="_blank"
-                                //         download="${message.file_name}"
-                                //     >
-                                //         <i class="fa-regular fa-file"></i>
-
-                                //         <span>
-                                //             ${message.file_name}
-                                //         </span>
-                                //     </a>
-                                // `
                                 `${this.renderFileMessage(message)}`
                                 : message.message_type === 'voice'
                                     ? `
@@ -1155,10 +1268,7 @@ const chatApp = {
                                                                                 ${callMessage.subText}
                                                                             </span>`}
                                                             </div>
-                                                        </div>`})() : `
-                                                <p>
-                                                    ${message.content}
-                                                </p>`
+                                                        </div>`})() : `<p>${this.escapeHtml(message.content)}</p>`
 
                         }
                         </div>
@@ -1280,7 +1390,9 @@ const chatApp = {
                         src="${message.content}"
                         alt="Ảnh đã gửi"
                     >
-                    `
+                    ${message.caption
+                                    ? `<p class="message_caption">${this.escapeHtml(message.caption)}</p>`
+                                    : ''}`
                 : message.message_type === 'file'
                     ?
                     // `
@@ -1351,7 +1463,7 @@ const chatApp = {
                                 </div>
 
                             `
-                        })() : `<p>${message.content}</p>`
+                        })() : `<p>${this.escapeHtml(message.content)}</p>`
             }
 
             </div>
@@ -1570,7 +1682,7 @@ const chatApp = {
     },
 
     openConversation: function (conversation) {
-        this.clearReply()
+        this.clearPendingImage()
         this.currentConversation = conversation
 
         chatEmpty.style.display = 'none'
@@ -1597,9 +1709,18 @@ const chatApp = {
             conversation.conversation_id
         )
 
-        this.checkUserOnline(
-            conversation.user.id
-        )
+        const isBot = !!conversation.user.is_bot
+
+        // AI: bỏ nút gọi, hiện nút làm mới
+        callBtn.style.display = isBot ? 'none' : ''
+        callVideoBtn.style.display = isBot ? 'none' : ''
+        refreshAiBtn.style.display = isBot ? 'flex' : 'none'
+
+        if (isBot) {
+            chatUserStatus.textContent = 'Trợ lý AI • luôn sẵn sàng'
+        } else {
+            this.checkUserOnline(conversation.user.id)
+        }
 
         this.markMessagesSeen(
             conversation.conversation_id
@@ -2398,8 +2519,8 @@ const chatApp = {
 
                             messagePreview =
                                 isMine
-                                    ? `Bạn: 📎 ${conversation.last_message.file_name}`
-                                    : `📎 ${conversation.last_message.file_name}`
+                                    ? `Bạn: 📎 ${this.escapeHtml(conversation.last_message.content)}`
+                                    : `📎 ${this.escapeHtml(conversation.last_message.content)}`
 
                         } else if (messageType === 'voice') {
 
@@ -2470,6 +2591,29 @@ const chatApp = {
                 `
                 }).join('')
             this.filterConversations()
+
+            // Conversation của AI: đánh dấu và không cho xóa
+            result.conversations.forEach(conversation => {
+
+                if (!conversation.user.is_bot) {
+                    return
+                }
+
+                const aiItem = conversationList.querySelector(
+                    `[data-conversation-id="${conversation.conversation_id}"]`
+                )
+
+                if (aiItem) {
+                    aiItem.classList.add('ai_item')
+
+                    const moreBtn = aiItem.querySelector('.conversation_more')
+
+                    if (moreBtn) {
+                        moreBtn.remove()
+                    }
+                }
+            })
+
             if (this.currentConversation) {
                 const activeItem = conversationList.querySelector(
                     `[data-conversation-id="${this.currentConversation.conversation_id}"]`
@@ -2587,7 +2731,13 @@ const chatApp = {
                 )
         }
 
-        conversationList.prepend(conversationItem)
+        const aiItem = conversationList.querySelector('.ai_item')
+
+        if (aiItem && aiItem !== conversationItem) {
+            aiItem.after(conversationItem)
+        } else {
+            conversationList.prepend(conversationItem)
+        }
         this.filterConversations();
     },
 
@@ -3764,11 +3914,29 @@ const chatApp = {
             const content =
                 messageInput.value.trim()
 
-            if (content === '') {
+            // Có ảnh đang chờ: gửi ảnh kèm lời nhắn (nếu có)
+            if (this.pendingImage) {
+
+                if (!this.currentConversation) {
+                    return
+                }
+
+                const image = this.pendingImage
+                const previewUrl = this.pendingImageUrl
+
+                this.pendingImage = null
+                this.pendingImageUrl = null
+                imagePreviewBar.style.display = 'none'
+
+                messageInput.value = ''
+                clearTimeout(this.typingTimer)
+                this.sendTyping(false)
+
+                this.sendImageMessage(image, previewUrl, content)
                 return
             }
 
-            if (!this.currentConversation) {
+            if (content === '') {
                 return
             }
 
@@ -3817,124 +3985,20 @@ const chatApp = {
                 return
             }
 
-            const oldStatus =
-                chatBody.querySelectorAll('.message_status')
-
-            oldStatus.forEach(status => {
-                status.remove()
-            })
-
-
             try {
-
-                const compressedImage =
-                    await this.compressImage(image)
-
-                // Tạo URL tạm cho ảnh
-                const previewUrl =
-                    URL.createObjectURL(compressedImage)
-
-                // Hiển thị ảnh ngay lập tức
-                chatBody.insertAdjacentHTML(
-                    'beforeend',
-                    `
-                <div class="message sent message_pending">
-
-                    <div class="message_content">
-
-                        <img
-                            class="message_image"
-                            src="${previewUrl}"
-                            alt="Ảnh đang gửi"
-                        >
-
-                    </div>
-
-                    <span class="message_status">
-                        Đang gửi...
-                    </span>
-
-                </div>
-            `
-                )
-
-                // Cuộn xuống cuối
-                const lastMessage =
-                    chatBody.lastElementChild
-
-                if (lastMessage) {
-                    lastMessage.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'end'
-                    })
-                }
-
-
-                const formData =
-                    new FormData()
-
-                formData.append(
-                    'conversation_id',
-                    this.currentConversation.conversation_id
-                )
-
-                formData.append(
-                    'sender_id',
-                    this.config.user.id
-                )
-
-                formData.append(
-                    'image',
-                    compressedImage
-                )
-
-
-                const response = await fetch(
-                    `${API_URL}/api/messages`,
-                    {
-                        method: 'POST',
-                        body: formData
-                    }
-                )
-
-                const result =
-                    await response.json()
-
-
-                if (!result.success) {
-
-                    console.error(
-                        result.message
-                    )
-
-                    return
-                }
-
-
-                // Upload thành công
-                await this.loadMessages(
-                    this.currentConversation.conversation_id
-                )
-
-                await this.loadConversations()
-
-
-                // Giải phóng URL tạm
-                URL.revokeObjectURL(
-                    previewUrl
-                )
-
-                imageInput.value = ''
-
+                const compressedImage = await this.compressImage(image)
+                this.stageImage(compressedImage, image.name)
 
             } catch (error) {
-
-                console.error(
-                    'Lỗi gửi ảnh:',
-                    error
-                )
-
+                console.error('Lỗi xử lý ảnh:', error)
+                alert('Không thể đọc ảnh này.')
             }
+
+            imageInput.value = ''
+        }
+
+        imagePreviewBar.querySelector('.image_preview_close').onclick = () => {
+            this.clearPendingImage()
         }
 
         // ===================== SEND FILE ===========================
@@ -4726,6 +4790,46 @@ const chatApp = {
         messageInput.addEventListener('input', () => {
             this.handleTyping()
         })
+
+        // ============ LÀM MỚI CUỘC TRÒ CHUYỆN VỚI AI ============
+        refreshAiBtn.onclick = async () => {
+
+            if (
+                !this.currentConversation ||
+                !this.currentConversation.user.is_bot
+            ) {
+                return
+            }
+
+            if (!confirm(
+                'Làm mới cuộc trò chuyện với AI?\n' +
+                'Toàn bộ tin nhắn sẽ bị xóa và AI sẽ quên nội dung đã trò chuyện.'
+            )) {
+                return
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/ai/reset`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: this.config.user.id })
+                })
+
+                const result = await response.json()
+
+                if (!result.success) {
+                    alert(result.message)
+                    return
+                }
+
+                this.clearReply()
+                this.loadMessages(this.currentConversation.conversation_id)
+                this.loadConversations()
+
+            } catch (error) {
+                console.error('Lỗi làm mới AI:', error)
+            }
+        }
     },
 
 
