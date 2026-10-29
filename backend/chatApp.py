@@ -55,7 +55,7 @@ app.register_blueprint(
 @app.route('/')
 def home():
 
-    return redirect('/app/login.html')
+    return redirect('/app/chatApp.html')
 
 # =========================
 # ICE SERVERS (STUN + TURN cho gọi điện)

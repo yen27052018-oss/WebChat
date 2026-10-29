@@ -23,8 +23,8 @@ HISTORY_LIMIT = 10                # AI nhớ 20 tin gần nhất
 RECENT_ATTACHMENTS = 4              # chỉ đính kèm nội dung thật cho 4 tin gần nhất
 
 GREETING = (
-    'Hello ní ! Tui là chatbot AI. '
-    'Ní có thể gửi tui tin nhắn, ảnh và file, tui sẵn lòng hỗ trợ <3'
+    'Hello ! mình là chatbot AI. '
+    'bạn có thể gửi mình tin nhắn, ảnh và file, mình sẵn lòng hỗ trợ.'
 )
 
 SYSTEM_PROMPT = (

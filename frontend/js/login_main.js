@@ -1,3 +1,14 @@
+// Đã đăng nhập rồi thì vào thẳng trang chat
+try {
+    const savedLogin = JSON.parse(localStorage.getItem('CHAT_WATCH_LOGIN')) || {}
+
+    if (savedLogin.isLoggedIn && savedLogin.user) {
+        window.location.replace('./chatApp.html')
+    }
+} catch (error) {
+    console.error(error)
+}
+
 const $ = document.querySelector.bind(document)
 
 const LOGIN_STORAGE_KEY = 'CHAT_WATCH_LOGIN'
