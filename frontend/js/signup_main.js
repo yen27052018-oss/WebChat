@@ -6,7 +6,8 @@ try {
         window.location.replace('./chatApp.html')
     }
 } catch (error) {
-    console.error(error)
+
+    showServerError(signupError, error)
 }
 
 const $ = document.querySelector.bind(document)

@@ -4,6 +4,22 @@
     font-weight: 600;
     margin: 15px 0;
 
-    color: #D32F2F;
+    color: var(--error-color, #D32F2F);
     text-align: center;
+}
+
+.error.is-visible {
+    display: block;
+}
+
+.error--reserved {
+    display: block;
+    visibility: hidden;
+    min-height: 20px;
+    line-height: 20px;
+    margin: 0 0 15px;
+}
+
+.error--reserved.is-visible {
+    visibility: visible;
 }

@@ -1,12 +1,20 @@
 // ERROR
 const showError = (error, message) => {
     error.textContent = message
-    error.style.display = 'block'
+    error.classList.add('is-visible')
 }
 
 const hideError = (error) => {
     error.textContent = ''
-    error.style.display = 'none'
+    error.classList.remove('is-visible')
+}
+
+// Lỗi mất kết nối server - dùng chung cho login / signup / đổi mật khẩu
+const SERVER_ERROR_MESSAGE = 'Không thể kết nối đến máy chủ'
+
+const showServerError = (error, err) => {
+    if (err) console.error(err)
+    showError(error, SERVER_ERROR_MESSAGE)
 }
 
 // LOGIN
