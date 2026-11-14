@@ -2,6 +2,11 @@ from flask import Blueprint, request, jsonify
 from backend.database import get_db
 from backend.extensions import socketio
 from backend.ai_service import ensure_ai_conversation
+from backend.group_avatar import refresh_auto_avatar
+import json
+import os
+import uuid
+from pathlib import Path
 
 friend_bp = Blueprint('friend', __name__)
 
@@ -354,8 +359,7 @@ def accept_friend_request():
         
 @friend_bp.route('/api/conversations', methods=['GET'])
 def get_conversations():
-    
-    print('>>> get_conversations V2 đang chạy')
+
     user_id = request.args.get('user_id')
 
     if not user_id:
@@ -366,16 +370,20 @@ def get_conversations():
 
     db = get_db()
     cursor = db.cursor(dictionary=True)
-    # Đảm bảo người dùng luôn có conversation với AI
-    ensure_ai_conversation(db, cursor, user_id)
+
     try:
+        # Đảm bảo người dùng luôn có conversation với AI
+        ensure_ai_conversation(db, cursor, user_id)
 
         cursor.execute(
             '''
             SELECT
                 c.id AS conversation_id,
                 c.type,
-                cm.user_id
+                c.name,
+                c.description,
+                c.avatar,
+                cm.last_read_message_id
             FROM conversations c
             JOIN conversation_members cm
                 ON c.id = cm.conversation_id
@@ -386,80 +394,130 @@ def get_conversations():
         )
 
         conversations = cursor.fetchall()
-
         result = []
 
         for conversation in conversations:
 
             conversation_id = conversation['conversation_id']
+            is_group = conversation['type'] == 'group'
 
-            # Lấy người còn lại trong conversation
+            if is_group:
+                # Nhóm: tạo "user" giả để giao diện dùng chung với chat 1-1
+                cursor.execute(
+                    '''
+                    SELECT COUNT(*) AS member_count
+                    FROM conversation_members
+                    WHERE conversation_id = %s
+                    ''',
+                    (conversation_id,)
+                )
+
+                user = {
+                    'id': None,
+                    'userid': None,
+                    'username': conversation['name'] or 'Nhóm',
+                    'avatar': conversation['avatar'] or 'default_avt.png',
+                    'is_bot': 0,
+                    'is_group': True,
+                    'member_count': cursor.fetchone()['member_count'],
+                    'description': conversation['description']
+                }
+
+            else:
+                # Chat 1-1: lấy người còn lại
+                cursor.execute(
+                    '''
+                    SELECT u.id, u.userid, u.username, u.avatar, u.is_bot
+                    FROM conversation_members cm
+                    JOIN users u ON u.id = cm.user_id
+                    WHERE cm.conversation_id = %s
+                        AND cm.user_id != %s
+                    LIMIT 1
+                    ''',
+                    (conversation_id, user_id)
+                )
+
+                user = cursor.fetchone()
+
+                if not user:
+                    continue
+
+                user['is_group'] = False
+
+            # Tin nhắn cuối (bỏ tin đã xóa phía mình)
             cursor.execute(
                 '''
                 SELECT
-                    u.id,
-                    u.userid,
-                    u.username,
-                    u.avatar,
-                    u.is_bot
-                FROM conversation_members cm
-                JOIN users u
-                    ON u.id = cm.user_id
-                WHERE cm.conversation_id = %s
-                    AND cm.user_id != %s
-                LIMIT 1
-                ''',
-                (conversation_id, user_id)
-            )
-            
-            user = cursor.fetchone()
-
-            if not user:
-                continue
-
-            cursor.execute(
-                    '''
-                    SELECT
-                        sender_id,
-                        content,
-                        file_name,
-                        message_type,
-                        created_at
-                    FROM messages m
-                    WHERE conversation_id = %s
-                        AND NOT EXISTS (
-                            SELECT 1 FROM message_deletions d
-                            WHERE d.message_id = m.id AND d.user_id = %s
-                        )
-                    ORDER BY created_at DESC, id DESC
-                    LIMIT 1
-                    ''',
-                    (conversation_id,user_id)
-                )
-
-            last_message = cursor.fetchone()  
-            
-            if last_message and last_message['created_at']:
-                last_message['created_at'] = \
-                    last_message['created_at'].strftime('%Y-%m-%d %H:%M:%S')  
-            
-            cursor.execute(
-                '''
-                SELECT COUNT(*) AS unread_count
+                    m.sender_id,
+                    u.username AS sender_username,
+                    m.content,
+                    m.file_name,
+                    m.message_type,
+                    m.call_type,
+                    m.is_recalled,
+                    m.created_at
                 FROM messages m
+                JOIN users u ON u.id = m.sender_id
                 WHERE m.conversation_id = %s
-                    AND m.sender_id != %s
-                    AND m.status != 'seen'
-                    AND m.is_recalled = 0
                     AND NOT EXISTS (
                         SELECT 1 FROM message_deletions d
                         WHERE d.message_id = m.id AND d.user_id = %s
                     )
+                ORDER BY m.created_at DESC, m.id DESC
+                LIMIT 1
                 ''',
-                (conversation_id, user_id, user_id)
+                (conversation_id, user_id)
             )
+
+            last_message = cursor.fetchone()
+
+            if last_message and last_message['created_at']:
+                last_message['created_at'] = \
+                    last_message['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+
+            # Số tin chưa đọc
+            if is_group:
+                # Nhóm: đếm các tin mới hơn tin đã đọc gần nhất của người này
+                cursor.execute(
+                    '''
+                    SELECT COUNT(*) AS unread_count
+                    FROM messages m
+                    WHERE m.conversation_id = %s
+                        AND m.sender_id != %s
+                        AND m.id > %s
+                        AND m.is_recalled = 0
+                        AND m.message_type != 'call'
+                        AND NOT EXISTS (
+                            SELECT 1 FROM message_deletions d
+                            WHERE d.message_id = m.id AND d.user_id = %s
+                        )
+                    ''',
+                    (
+                        conversation_id,
+                        user_id,
+                        conversation['last_read_message_id'] or 0,
+                        user_id
+                    )
+                )
+            else:
+                cursor.execute(
+                    '''
+                    SELECT COUNT(*) AS unread_count
+                    FROM messages m
+                    WHERE m.conversation_id = %s
+                        AND m.sender_id != %s
+                        AND m.status != 'seen'
+                        AND m.is_recalled = 0
+                        AND NOT EXISTS (
+                            SELECT 1 FROM message_deletions d
+                            WHERE d.message_id = m.id AND d.user_id = %s
+                        )
+                    ''',
+                    (conversation_id, user_id, user_id)
+                )
+
             unread_count = cursor.fetchone()['unread_count']
-            
+
             result.append({
                 'conversation_id': conversation_id,
                 'type': conversation['type'],
@@ -467,8 +525,10 @@ def get_conversations():
                 'last_message': last_message,
                 'unread_count': unread_count
             })
-            
+
+        # AI luôn đứng đầu
         result.sort(key=lambda item: 0 if item['user'].get('is_bot') else 1)
+
         return jsonify({
             'success': True,
             'conversations': result
@@ -476,7 +536,8 @@ def get_conversations():
 
     except Exception as error:
 
-        print(error)
+        import traceback
+        traceback.print_exc()
 
         return jsonify({
             'success': False,
@@ -487,7 +548,6 @@ def get_conversations():
 
         cursor.close()
         db.close()
-        
 # ============================
 
 # =========================
@@ -696,6 +756,153 @@ def remove_friend():
             'success': False,
             'message': 'Không thể xóa bạn bè'
         }), 500
+
+    finally:
+        cursor.close()
+        db.close()
+        
+# =========================
+# TẠO NHÓM
+# =========================
+
+GROUP_AVATAR_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.gif'}
+MIN_GROUP_FRIENDS = 1      # số bạn bè tối thiểu phải chọn (không tính người tạo)
+MAX_GROUP_MEMBERS = 50     # tối đa thành viên, tính cả người tạo
+
+
+@friend_bp.route('/api/groups', methods=['POST'])
+def create_group():
+
+    creator_id = request.form.get('creator_id', type=int)
+    name = request.form.get('name', '').strip()
+    description = request.form.get('description', '').strip()
+    avatar = request.files.get('avatar')
+
+    try:
+        raw_members = json.loads(request.form.get('members', '[]'))
+        member_ids = {int(member) for member in raw_members}
+    except (ValueError, TypeError):
+        member_ids = set()
+
+    member_ids.discard(creator_id)
+
+    def fail(message, status=400):
+        return jsonify({'success': False, 'message': message}), status
+
+    if not creator_id:
+        return fail('Thiếu thông tin người tạo')
+
+    if not name or len(name) > 50:
+        return fail('Tên nhóm phải từ 1 đến 50 ký tự')
+
+    if len(description) > 200:
+        return fail('Mô tả nhóm tối đa 200 ký tự')
+
+    if len(member_ids) < MIN_GROUP_FRIENDS:
+        return fail(f'Hãy chọn ít nhất {MIN_GROUP_FRIENDS} bạn bè')
+
+    if len(member_ids) + 1 > MAX_GROUP_MEMBERS:
+        return fail(f'Nhóm tối đa {MAX_GROUP_MEMBERS} thành viên')
+
+    avatar_extension = ''
+
+    if avatar and avatar.filename:
+        avatar_extension = os.path.splitext(avatar.filename)[1].lower()
+
+        if avatar_extension not in GROUP_AVATAR_EXTENSIONS:
+            return fail('Ảnh nhóm phải là png, jpg, webp hoặc gif')
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    avatar_path = None
+
+    try:
+        # Chỉ được thêm người đang là bạn bè
+        placeholders = ','.join(['%s'] * len(member_ids))
+
+        cursor.execute(
+            f'''
+            SELECT COUNT(DISTINCT u.id) AS total
+            FROM friend_requests fr
+            JOIN users u
+                ON u.id = IF(fr.sender_id = %s, fr.receiver_id, fr.sender_id)
+            WHERE fr.status = 'accepted'
+                AND (fr.sender_id = %s OR fr.receiver_id = %s)
+                AND u.id IN ({placeholders})
+            ''',
+            (creator_id, creator_id, creator_id, *member_ids)
+        )
+
+        if cursor.fetchone()['total'] != len(member_ids):
+            return fail('Chỉ có thể thêm bạn bè vào nhóm', 403)
+
+        # Lưu ảnh nhóm
+        avatar_url = None
+
+        if avatar_extension:
+            folder = (
+                Path(__file__).resolve().parents[2].parent
+                / 'WEB_Chat_Uploads' / 'group_avatars'
+            )
+            os.makedirs(folder, exist_ok=True)
+
+            filename = f'group_{uuid.uuid4().hex}{avatar_extension}'
+            avatar_path = folder / filename
+            avatar.save(avatar_path)
+
+            avatar_url = f'/uploads/group_avatars/{filename}'
+
+        cursor.execute(
+            '''
+            INSERT INTO conversations (type, name, description, avatar, created_by)
+            VALUES ('group', %s, %s, %s, %s)
+            ''',
+            (name, description or None, avatar_url, creator_id)
+        )
+        conversation_id = cursor.lastrowid
+
+        cursor.execute(
+            '''
+            INSERT INTO conversation_members (conversation_id, user_id, role)
+            VALUES (%s, %s, 'admin')
+            ''',
+            (conversation_id, creator_id)
+        )
+
+        for member_id in member_ids:
+            cursor.execute(
+                '''
+                INSERT INTO conversation_members (conversation_id, user_id, role)
+                VALUES (%s, %s, 'member')
+                ''',
+                (conversation_id, member_id)
+            )
+        # Không chọn ảnh nhóm: tự ghép avatar của thành viên
+        if not avatar_url:
+            refresh_auto_avatar(cursor, conversation_id)
+        db.commit()
+
+        # Báo cho tất cả thành viên cập nhật danh sách
+        for user_id in [creator_id, *member_ids]:
+            socketio.emit(
+                'group_created',
+                {'conversation_id': conversation_id},
+                room=f'user_{user_id}'
+            )
+
+        return jsonify({
+            'success': True,
+            'conversation_id': conversation_id
+        }), 200
+
+    except Exception as error:
+        db.rollback()
+        print('Lỗi tạo nhóm:', error)
+
+        if avatar_path and os.path.exists(avatar_path):
+            os.remove(avatar_path)
+
+        return fail('Không thể tạo nhóm', 500)
 
     finally:
         cursor.close()

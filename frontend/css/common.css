@@ -94,21 +94,60 @@
 }
 
 
-.btn {
-    margin: 0 10px;
-    border: none;
+/* ===== BUTTON DÙNG CHUNG =====
+   Style nền viết bằng :where() (độ ưu tiên = 0) để các rule riêng như
+   .btn-notif, .btn_search, .btn_create_group... luôn ghi đè được,
+   bất kể common.css được nạp trước hay sau. */
+:where(.btn) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 
-    height: 45px;
+    height: 44px;
     min-width: 88px;
+    margin: 0 10px;
+    padding: 0 18px;
+
+    border: none;
+    border-radius: 10px;
+
     background: #29313d;
 
-    font-size: 14px;    
+    font-family: inherit;
+    font-size: 14px;
     font-weight: 600;
+    white-space: nowrap;
     color: #fff;
 
     cursor: pointer;
+    transition:
+        filter 0.15s ease,
+        transform 0.1s ease,
+        background 0.2s ease;
 }
 
+:where(.btn):hover {
+    filter: brightness(0.92);
+}
+
+:where(.btn):active {
+    transform: scale(0.97);
+}
+
+:where(.btn):focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+:where(.btn):disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: none;
+    transform: none;
+}
+
+/* Biến thể màu */
 .btn-agree {
     background: var(--primary-color);
 }
@@ -122,11 +161,11 @@
 }
 
 .btn-delete{
-    background: red;
+    background: #e53935;
 }
 .btn-no{
-    background: #e5e7eb;
-    color:var(--black-color);
+    background: #eef0f4;
+    color:#2b3340;
 }
 
 .btn-small{

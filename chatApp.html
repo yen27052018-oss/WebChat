@@ -37,7 +37,7 @@
             <a href="#!" class="logo_link">
                 <div class="header_logo">
                     <img src="./assests/img/logo.png" alt="" class="logo_img">
-                    <h1 class="logo_heading">Chat & Watch</h1>
+                    <h1 class="logo_heading">ChatChit</h1>
                 </div>
             </a>
             <div class="header_right">
@@ -118,7 +118,7 @@
                     </div>
 
                     <!-- Xem phim -->
-                    <div class="sidebar_item" data-page="watch">
+                    <!-- <div class="sidebar_item" data-page="watch">
                         <div class="sidebar_icon">
                             <i class="fa-brands fa-youtube"></i>
                         </div>
@@ -126,7 +126,7 @@
                         <span class="sidebar_tooltip">
                             Xem phim
                         </span>
-                    </div>
+                    </div> -->
 
                 </div>
 
@@ -270,6 +270,67 @@
                                     </button>
                                 </div>
                             </div>
+
+                            <!-- Info Panel (trượt từ phải) -->
+                            <aside class="info_panel" id="infoPanel">
+                                <div class="info_header">
+                                    <h3>Thông tin hội thoại</h3>
+                                    <button type="button" id="closeInfoPanel" title="Đóng">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+
+                                <div class="info_body">
+                                    <div class="info_profile">
+                                        <img id="infoAvatar" alt="">
+                                        <h2 id="infoName"></h2>
+                                        <p id="infoSub"></p>
+                                    </div>
+
+                                    <div class="info_actions">
+                                        <button type="button" class="info_action" id="infoCreateGroup">
+                                            <i class="fa-solid fa-user-group"></i>
+                                            <span>Tạo nhóm trò chuyện</span>
+                                        </button>
+                                        <button type="button" class="info_action" id="infoAddMember">
+                                            <i class="fa-solid fa-user-plus"></i>
+                                            <span>Thêm thành viên</span>
+                                        </button>
+                                    </div>
+
+                                    <!-- Chỉ chat 1-1 -->
+                                    <section class="info_section" id="infoCommonGroups">
+                                        <h4>Nhóm chung (<span id="infoCommonCount">0</span>)</h4>
+                                        <div id="infoCommonList"></div>
+                                    </section>
+
+                                    <!-- Chỉ chat nhóm -->
+                                    <section class="info_section" id="infoMembers">
+                                        <h4>Thành viên (<span id="infoMemberCount">0</span>)</h4>
+                                        <div id="infoMemberList"></div>
+                                    </section>
+
+                                    <section class="info_section">
+                                        <div class="info_tabs" id="infoTabs">
+                                            <button type="button" class="active" data-tab="image">Ảnh</button>
+                                            <button type="button" data-tab="file">File</button>
+                                            <button type="button" data-tab="link">Link</button>
+                                        </div>
+                                        <div id="infoMediaList"></div>
+                                    </section>
+                                </div>
+
+                                <div class="info_footer">
+                                    <button type="button" class="info_danger" id="infoLeaveGroup">
+                                        <i class="fa-solid fa-right-from-bracket"></i>
+                                        <span>Rời nhóm</span>
+                                    </button>
+                                    <button type="button" class="info_danger" id="infoDeleteConv">
+                                        <i class="fa-solid fa-trash"></i>
+                                        <span>Xóa cuộc hội thoại</span>
+                                    </button>
+                                </div>
+                            </aside>
                         </div>
                     </section>
 
@@ -342,30 +403,16 @@
                                     <h1>Nhóm của tôi</h1>
                                     <p>Những nhóm bạn đang tham gia.</p>
                                 </div>
-                                <button class="friend_add_button">
+                                <button class="friend_add_button" id="createGroupBtn">
                                     <i class="fa-solid fa-plus"></i>
                                     <span>Tạo nhóm</span>
                                 </button>
                             </div>
-                            <div class="friend_list">
-                                <div class="friend_item group_item">
-                                    <div class="friend_avatar group_avatar">
-                                        <i class="fa-solid fa-users"></i>
-                                    </div>
-                                    <div class="friend_info">
-                                        <h3>Nhóm CHAT & WATCH</h3>
-                                        <p>5 thành viên</p>
-                                    </div>
-                                    <div class="friend_item_actions">
-                                        <button>
-                                            <i class="fa-regular fa-comment"></i>
-                                        </button>
-                                        <button>
-                                            <i class="fa-solid fa-ellipsis"></i>
-                                        </button>
-                                    </div>
-                                </div>
+                            <div class="friend_search">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="groupSearch" placeholder="Tìm kiếm nhóm...">
                             </div>
+                            <div class="friend_list" id="groupList"></div>
                         </div>
                     </section>
                 </div>
@@ -456,10 +503,9 @@
 
             <div class="modal_password-content">
 
-                <span class="error" id="passwordError"></span>
+                <span class="error error--reserved" id="passwordError" role="alert"></span>
 
                 <div class="form_group">
-                    <label for="currentPassword">Mật khẩu hiện tại</label>
                     <div class="form_input">
                         <input type="password" id="currentPassword" class="password" placeholder="Mật khẩu hiện tại"
                             autocomplete="current-password">
@@ -475,7 +521,6 @@
                 </div>
 
                 <div class="form_group">
-                    <label for="newPassword">Mật khẩu mới</label>
                     <div class="form_input">
                         <input type="password" id="newPassword" class="password" placeholder="Mật khẩu mới">
 
@@ -490,7 +535,6 @@
                 </div>
 
                 <div class="form_group">
-                    <label for="confirmPassword">Xác nhận mật khẩu mới</label>
                     <div class="form_input">
                         <input type="password" id="confirmPassword" class="password"
                             placeholder="Nhập lại mật khẩu mới">
@@ -554,41 +598,62 @@
         </div>
     </div>
 
-    <!-- Add Group Modal -->
-    <div class="modal_overlay" id="addfrModal">
-        <div class="modal_layout user_list">
+    <!-- Create Group Modal -->
+    <div class="modal_overlay" id="createGroupModal">
+        <div class="modal_layout group_modal">
             <div class="modal_header">
-                <div>
-                    <h2>Thêm bạn</h2>
-                    <p>Tìm kiếm bạn bè bằng tên hoặc ID</p>
-                </div>
-                <button class="modal_close" id="closeAddFriend">
+                <h2 id="groupModalTitle">Tạo nhóm mới</h2>
+                <button class="modal_close" id="closeCreateGroup" type="button">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
             <div class="separate modal_separate"></div>
-            <div class="modal_search">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="friendUserSearch" placeholder="Nhập tên hoặc ID người dùng..."
-                    autocomplete="off">
-                <button class="btn btn_search" id="searchFriendBtn">
-                    Tìm kiếm
-                </button>
-            </div>
-            <div class="modal_result" id="friendSearchResult">
-                <!-- <div class="modal_empty hide">
-                    <i class="fa-solid fa-user-plus"></i>
-                    <p>Nhập tên hoặc ID để tìm kiếm bạn bè</p>
+
+            <div class="group_modal_body">
+                <div id="groupInfoFields">
+                    <div class="group_basic">
+                        <button type="button" class="group_avatar_pick" id="groupAvatarPick" title="Chọn ảnh nhóm">
+                            <img id="groupAvatarPreview" alt="" hidden>
+                            <i class="fa-solid fa-camera group_avatar_camera"></i>
+                            <span class="group_avatar_plus">
+                                <i class="fa-solid fa-plus"></i>
+                            </span>
+                        </button>
+                        <input type="file" id="groupAvatarInput" accept="image/*" hidden>
+
+                        <div class="group_field group_field_name">
+                            <div class="input-container">
+                                <input type="text" id="groupName" maxlength="50" placeholder=" " autocomplete="off">
+                                <label for="groupName" class="label">Tên nhóm</label>
+                                <div class="underline"></div>
+                            </div>
+                            <span class="group_counter" id="groupNameCount">0/50</span>
+                        </div>
+                    </div>
+                    <div class="group_field">
+                        <div class="input-container">
+                            <input type="text" id="groupDesc" maxlength="200" placeholder=" " autocomplete="off">
+                            <label for="groupDesc" class="label">Mô tả nhóm (tùy chọn)</label>
+                            <div class="underline"></div>
+                        </div>
+                        <span class="group_counter" id="groupDescCount">0/200</span>
+                    </div>
+                </div>
+                <div class="group_members_head">
+                    <label>Thành viên <span class="required">*</span></label>
+                    <span id="groupSelectedCount">Đã chọn: 0</span>
+                </div>
+                <div class="modal_search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="groupMemberSearch" placeholder="Tìm kiếm bạn bè..." autocomplete="off">
                 </div>
 
-                <div class="modal_item">
-                    <img src="./assests/img/default_avt.png" alt="" id="otherImg">
-                    <div class="modal_container">
-                        <h4 class="modal_name">A Tuấn</h4>
-                        <p class="modal_id">CW0005</p>
-                    </div>
-                    <button type="submit" class="btn btn_addfriend">Kết bạn</button>
-                </div> -->
+                <div class="group_member_list" id="groupMemberList"></div>
+            </div>
+
+            <div class="group_modal_footer">
+                <button type="button" class="btn btn-no" id="cancelCreateGroup">Hủy</button>
+                <button type="button" class="btn btn_create_group" id="submitCreateGroup" disabled>Tạo nhóm</button>
             </div>
         </div>
     </div>
@@ -604,6 +669,7 @@
             </div>
             <div class="separate modal_separate"></div>
             <div class="dialog_container">
+                <div class="dialog_icon"><i class="fa-solid fa-trash"></i></div>
                 <p class="dialog_content">
                     Nội dung của cuộc trò chuyện sẽ bị xóa vĩnh viễn.
                     <br>
@@ -628,6 +694,7 @@
             </div>
             <div class="separate modal_separate"></div>
             <div class="dialog_container">
+                <div class="dialog_icon"><i class="fa-solid fa-trash"></i></div>
                 <p class="dialog_content">
                     Bạn có chắc chắn muốn xóa
                     <strong id="removeFriendName"></strong>
@@ -636,6 +703,53 @@
                 <div class="dialog_btn">
                     <button class="btn btn-no" id="cancelRemoveFriend">Không</button>
                     <button class="btn btn-delete" id="confirmRemoveFriend">Xóa</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leave Group -->
+    <div class="modal_overlay" id="leaveGroupModal">
+        <div class="modal_layout dialog">
+            <div class="modal_header dialog_header">
+                <h2>Xác nhận</h2>
+                <button class="modal_close" id="closeLeaveGroup">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="separate modal_separate"></div>
+            <div class="dialog_container">
+                <div class="dialog_icon"><i class="fa-solid fa-trash"></i></div>
+                <p class="dialog_content" id="leaveGroupText"></p>
+                <div class="dialog_btn">
+                    <button class="btn btn-no" id="cancelLeaveGroup">Không</button>
+                    <button class="btn btn-delete" id="confirmLeaveGroup">Rời nhóm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Refresh AI Conversation -->
+    <div class="modal_overlay" id="refreshAiModal">
+        <div class="modal_layout dialog">
+            <div class="modal_header dialog_header">
+                <h2>Xác nhận</h2>
+                <button class="modal_close" id="closeRefreshAi">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="separate modal_separate"></div>
+            <div class="dialog_container">
+                <div class="dialog_icon"><i class="fa-solid fa-rotate-right"></i></div>
+                <p class="dialog_content">
+                    Làm mới cuộc trò chuyện với AI?
+                    <br>
+                    Toàn bộ tin nhắn sẽ bị xóa và AI sẽ quên nội dung đã trò chuyện.
+                    
+                </p>
+                <div class="dialog_btn">
+                    <button class="btn btn-no" id="cancelRefreshAi">Không</button>
+                    <button class="btn btn-delete" id="confirmRefreshAi">Làm mới</button>
                 </div>
             </div>
         </div>

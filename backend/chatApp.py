@@ -10,6 +10,7 @@ from backend.routes.login import login_bp
 from backend.routes.profile import profile_bp
 from backend.routes.friend import friend_bp
 from backend.routes.message import message_bp
+from backend.routes.group import group_bp
 
 from backend.socket import chatSocket
 
@@ -46,7 +47,7 @@ app.register_blueprint(
     message_bp
 )
 
-
+app.register_blueprint(group_bp)
 
 # =========================
 # HOME

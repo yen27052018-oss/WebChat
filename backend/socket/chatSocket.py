@@ -164,34 +164,32 @@ def handle_send_message(data):
                 'User không thuộc cuộc trò chuyện'
             )
             return
+                # =========================
+        # TÌM NGƯỜI NHẬN (1-1: một người, nhóm: tất cả thành viên khác)
         # =========================
-        # TÌM NGƯỜI NHẬN
-        # =========================
+
+        cursor.execute(
+            'SELECT type FROM conversations WHERE id = %s',
+            (conversation_id,)
+        )
+        conversation = cursor.fetchone()
+        is_group = bool(conversation and conversation['type'] == 'group')
 
         cursor.execute(
             '''
             SELECT user_id
             FROM conversation_members
-            WHERE conversation_id = %s
-                AND user_id != %s
-            LIMIT 1
+            WHERE conversation_id = %s AND user_id != %s
             ''',
-            (
-                conversation_id,
-                sender_id
-            )
+            (conversation_id, sender_id)
         )
-        receiver = cursor.fetchone()
-        if not receiver:
+        receivers = [row['user_id'] for row in cursor.fetchall()]
 
-            print(
-                'Không tìm thấy người nhận'
-            )
-
+        if not receivers:
+            print('Không tìm thấy người nhận')
             return
-        receiver_id = receiver[
-            'user_id'
-        ]
+
+        receiver_id = receivers[0]
         
         reply_to_id = data.get('reply_to_id')
 
@@ -215,7 +213,7 @@ def handle_send_message(data):
         # =========================
         status = (
             'delivered'
-            if receiver_online
+            if receiver_online and not is_group
             else 'sent'
         )
         # =========================
@@ -265,14 +263,12 @@ def handle_send_message(data):
         # =========================
         # GỬI TIN ĐẾN USER NHẬN
         # ========================
-        receiver_room = (
-            f'user_{receiver_id}'
-        )
-        socketio.emit(
-            'new_message',
-            message,
-            room=receiver_room
-        )
+        for member_id in receivers:
+            socketio.emit(
+                'new_message',
+                message,
+                room=f'user_{member_id}'
+            )
         # =========================
         # GỬI MESSAGE CHO NGƯỜI GỬI
         # =========================
@@ -302,8 +298,10 @@ def handle_send_message(data):
             room=sender_room
         )
 
-        # Người nhận là AI thì AI trả lời
-        maybe_reply_ai(conversation_id, sender_id, receiver_id, message_id)
+        if not is_group:
+            maybe_reply_ai(conversation_id, sender_id, receiver_id, message_id)
+        # # Người nhận là AI thì AI trả lời
+        # maybe_reply_ai(conversation_id, sender_id, receiver_id, message_id)
         
         print(
             f'Đã lưu tin nhắn {message_id}'
@@ -376,7 +374,28 @@ def handle_message_seen(data):
         if not member:
             return
 
+                # Nhóm: chỉ ghi nhớ tin cuối mà người này đã đọc
+        cursor.execute(
+            'SELECT type FROM conversations WHERE id = %s',
+            (conversation_id,)
+        )
+        row = cursor.fetchone()
 
+        if row and row['type'] == 'group':
+            cursor.execute(
+                '''
+                UPDATE conversation_members
+                SET last_read_message_id = (
+                    SELECT COALESCE(MAX(id), 0)
+                    FROM messages
+                    WHERE conversation_id = %s
+                )
+                WHERE conversation_id = %s AND user_id = %s
+                ''',
+                (conversation_id, conversation_id, user_id)
+            )
+            db.commit()
+            return
         # =========================
         # UPDATE SEEN
         # =========================
@@ -1527,17 +1546,41 @@ def handle_call_video_toggle(data):
 @socketio.on('typing')
 def handle_typing(data):
 
+    conversation_id = data.get('conversation_id')
+    sender_id = data.get('sender_id')
     receiver_id = data.get('receiver_id')
 
-    if not receiver_id:
+    if receiver_id:
+        receivers = [receiver_id]
+
+    elif conversation_id and sender_id:
+        # Nhóm: gửi cho mọi thành viên khác
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                '''
+                SELECT user_id FROM conversation_members
+                WHERE conversation_id = %s AND user_id != %s
+                ''',
+                (conversation_id, sender_id)
+            )
+            receivers = [row['user_id'] for row in cursor.fetchall()]
+
+        finally:
+            cursor.close()
+            db.close()
+    else:
         return
 
-    socketio.emit(
-        'typing',
-        {
-            'conversation_id': data.get('conversation_id'),
-            'sender_id': data.get('sender_id'),
-            'is_typing': bool(data.get('is_typing'))
-        },
-        room=f'user_{receiver_id}'
-    )  
+    for member_id in receivers:
+        socketio.emit(
+            'typing',
+            {
+                'conversation_id': conversation_id,
+                'sender_id': sender_id,
+                'is_typing': bool(data.get('is_typing'))
+            },
+            room=f'user_{member_id}'
+        ) 

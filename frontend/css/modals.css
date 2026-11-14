@@ -51,15 +51,13 @@
 .modal_header {
     display: flex;
 
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
 
     gap: 20px;
 }
 
 .modal_header h2 {
-    margin: 0 0 12px;
-
     color: var(--primary-color);
 
     font-size: 20px;
@@ -67,7 +65,7 @@
 }
 
 .modal_header p {
-    margin: 0;
+    margin-top: 5px;
 
     color: var(--primary-color);
 
@@ -97,7 +95,7 @@
 .modal_separate{
     width: 100% !important;
     height: 1px !important;
-    margin: 15px 0;
+    margin: 10px 0;
 }
 
 .modal_search {
@@ -147,6 +145,7 @@
 .btn_search{
     background: #4c6df5;
     height: 38px;
+    flex:none !important;
 }
 
 .modal_search button:hover {
@@ -308,6 +307,7 @@
 
 .modal_acts{
     margin-top: 20px;
+    display: flex;
 }
 
 /* profile */
@@ -395,7 +395,7 @@
 }
 
 .form_group{
-    margin-bottom: 10px;
+    margin-bottom: 25px;
 }
 
 .form_input{
@@ -490,6 +490,7 @@
 .btn_addfriend{
     height: 30px;
     transition: background 0.3s, color 0.3s;
+    flex: none !important;
 }
 
 .btn_addfriend:hover{

@@ -229,17 +229,6 @@ def send_message():
                 resource_type='raw',
                 public_id=unique_name
             )
-
-            # download_url = cloudinary.utils.cloudinary_url(
-            #     f'chat-watch-files/{unique_name}',
-            #     resource_type='raw',
-            #     type='upload',
-            #     secure=True,
-            #     flags=f'attachment:{file_name}'
-            # )[0]
-            
-            
-
             content = result['secure_url']
             message_type = 'file'
 
@@ -329,33 +318,34 @@ def send_message():
             
         # Lấy người nhận
         cursor.execute(
+            'SELECT type FROM conversations WHERE id = %s',
+            (conversation_id,)
+        )
+        conversation_row = cursor.fetchone()
+        is_group = bool(conversation_row and conversation_row['type'] == 'group')
+
+        cursor.execute(
             '''
             SELECT user_id
             FROM conversation_members
-            WHERE conversation_id = %s
-                AND user_id != %s
-            LIMIT 1
+            WHERE conversation_id = %s AND user_id != %s
             ''',
-            (
-                conversation_id,
-                sender_id
-            )
+            (conversation_id, sender_id)
         )
+        receivers = cursor.fetchall()
 
-        receiver = cursor.fetchone()
-
-        if not receiver:
+        if not receivers:
             return jsonify({
                 'success': False,
                 'message': 'Không tìm thấy người nhận'
             }), 400
 
-        receiver_id = receiver['user_id']
+        receiver_id = receivers[0]['user_id']
 
-        # Xác định trạng thái tin nhắn
+        # Xác định trạng thái tin nhắn (nhóm luôn là 'sent')
         status = (
             'delivered'
-            if str(receiver_id) in online_users
+            if not is_group and str(receiver_id) in online_users
             else 'sent'
         )
 
@@ -407,35 +397,21 @@ def send_message():
         message = get_message_by_id(cursor, message_id)
 
         # Lấy người nhận
-        cursor.execute(
-            '''
-            SELECT user_id
-            FROM conversation_members
-            WHERE conversation_id = %s
-                AND user_id != %s
-            LIMIT 1
-            ''',
-            (
-                conversation_id,
-                sender_id
-            )
-        )
+                # Gửi realtime cho mọi thành viên khác
+        for receiver in receivers:
 
-        receiver = cursor.fetchone()
-
-        if receiver:
-
-            receiver_id = receiver['user_id']
-
-            # Gửi tin nhắn realtime cho người nhận
             socketio.emit(
                 'new_message',
                 message,
-                room=f'user_{receiver_id}'
+                room=f"user_{receiver['user_id']}"
             )
-            
-            # Người nhận là AI thì AI trả lời
-            maybe_reply_ai(conversation_id, sender_id, receiver_id, message['id'])
+
+            # Chỉ chat 1-1 với AI mới có AI trả lời
+            if not is_group:
+                maybe_reply_ai(
+                    conversation_id, sender_id,
+                    receiver['user_id'], message['id']
+                )
         
         return jsonify({
             'success': True,

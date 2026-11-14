@@ -28,22 +28,24 @@ GREETING = (
 )
 
 SYSTEM_PROMPT = (
-    'Bạn là trợ lý AI trong của một web chat, bạn tên là trợ lý AI. '
-    'Trả lời bằng ngôn ngữ của người dùng (mặc định là tiếng Việt, Tiếng anh nếu người dùng yêu cầu), '
-    'ngắn gọn, thân thiện như đang nhắn tin với bạn bè thực sự ngoài đời.\n\n'
-    'Quy tắc định dạng bắt buộc:\n'
-    '- Ứng dụng chỉ hiển thị văn bản thuần nên tuyệt đối KHÔNG dùng Markdown (không dùng dấu ** hay #).\n'
-    '- Có thể xuống dòng và dùng dấu gạch đầu dòng "-" khi liệt kê thông tin.\n\n'
-    'Quy tắc nhắn tin để giống người thật:\n'
-    '- Độ dài: Chỉ nhắn từ 1 đến 3 câu ngắn cho mỗi tin nhắn. Không viết thành các đoạn văn dài dòng, trang trọng.\n'
-    '- Cách dùng từ: Xưng hô tự nhiên mặc định bạn sẽ nhắn tui (ní - tui tùy theo người dùng nhắn như nào lựa chọn cho phù hợp với đoạn chat). Sử dụng ngôn từ tiếng Việt hiện đại, đời thường (có thể dùng từ cảm thán như: vậy hả, á đù dữ, kkk, nha, nè, ông/bà...).\n'
-    '- Biểu cảm: Sử dụng emoji một cách hạn chế ở cuối câu để biểu lộ cảm xúc (ví dụ: 😂, 🥺, 🤔, ✨).\n'
-    '- Tương tác: Biết hỏi ngược lại ở cuối tin nhắn để khơi gợi câu chuyện, thể hiện sự quan tâm thực sự đến người đối diện.'
+    "Bạn là một trợ lý AI tích hợp trong ứng dụng web chat, tên là Trợ lý AI. "
+    "Nhiệm vụ của bạn là hỗ trợ người dùng bằng trải nghiệm trò chuyện tự nhiên nhất.\n\n"
+    "1. Phong cách và ngôn ngữ:\n"
+    "- Luôn phản hồi bằng ngôn ngữ mà người dùng đang sử dụng (mặc định là tiếng Việt, chuyển sang tiếng Anh hoặc ngôn ngữ khác nếu người dùng yêu cầu).\n"
+    "- Sử dụng cách xưng hô thân mật là 'bạn' và 'mình' trong suốt cuộc trò chuyện.\n"
+    "- Giữ câu trả lời ngắn gọn, cô đọng, đi thẳng vào vấn đề như hai người bạn thân đang nhắn tin ngoài đời.\n\n"
+    "2. Quy tắc định dạng bắt buộc:\n"
+    "- Ứng dụng này chỉ hiển thị văn bản thuần (Plain Text). Tuyệt đối KHÔNG sử dụng định dạng Markdown dưới mọi hình thức (ví dụ: không dùng dấu '**' để bôi đậm, không dùng '#' để làm tiêu đề).\n"
+    "- Được phép xuống dòng để tách biệt các ý rõ ràng.\n"
+    "- Sử dụng dấu gạch đầu dòng '-' khi cần liệt kê thông tin."
 )
+
 
 _bot_id = None
 _ensure_lock = threading.Lock()
 _user_locks = defaultdict(threading.Lock)
+_triggered_messages = set()
+_triggered_lock = threading.Lock()
 
 
 # =========================
@@ -281,7 +283,9 @@ def build_contents(cursor, conversation_id, user_id, bot_id):
     # Gemini cần bắt đầu bằng lượt của người dùng (bỏ lời chào của bot)
     while contents and contents[0]['role'] != 'user':
         contents.pop(0)
-
+    # Gemini cần lượt cuối là của người dùng
+    while contents and contents[-1]['role'] != 'user':
+        contents.pop()
     return contents
 
 
@@ -428,15 +432,38 @@ def reply_as_ai(conversation_id, user_id, message_id):
     # Mỗi người dùng trả lời lần lượt, không chạy chồng
     with _user_locks[str(user_id)]:
 
-        send_typing(True)
-
         db = get_db()
         cursor = db.cursor(dictionary=True)
+        typing_started = False
 
         try:
+            # Tin gốc đã bị xóa (người dùng làm mới cuộc trò chuyện) thì bỏ qua
+            cursor.execute('SELECT id FROM messages WHERE id = %s', (message_id,))
+
+            if not cursor.fetchone():
+                return
+
+            # Tin cuối cùng đã là của AI nghĩa là đã trả lời rồi, không trả lời lại
+            cursor.execute(
+                '''
+                SELECT sender_id FROM messages
+                WHERE conversation_id = %s
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                ''',
+                (conversation_id,)
+            )
+            last = cursor.fetchone()
+
+            if last and str(last['sender_id']) == str(bot_id):
+                return
+
+            send_typing(True)
+            typing_started = True
+
             answer = generate_answer(cursor, conversation_id, user_id, bot_id)
 
-            # Tin gốc đã bị xóa (người dùng làm mới cuộc trò chuyện) thì bỏ qua
+            # Trong lúc chờ, tin gốc có thể đã bị xóa (làm mới cuộc trò chuyện)
             cursor.execute('SELECT id FROM messages WHERE id = %s', (message_id,))
 
             if not cursor.fetchone():
@@ -462,19 +489,34 @@ def reply_as_ai(conversation_id, user_id, message_id):
         finally:
             cursor.close()
             db.close()
-            send_typing(False)
 
+            if typing_started:
+                send_typing(False)
 
 def maybe_reply_ai(conversation_id, sender_id, receiver_id, message_id):
     """Gọi sau khi lưu tin nhắn: nếu người nhận là AI thì AI trả lời."""
 
     bot_id = get_bot_id()
 
-    if (
+    if not (
         bot_id
         and str(receiver_id) == str(bot_id)
         and str(sender_id) != str(bot_id)
     ):
-        socketio.start_background_task(
-            reply_as_ai, conversation_id, sender_id, message_id
-        )
+        return
+
+    # Mỗi tin nhắn chỉ kích hoạt AI một lần (chặn bị gọi trùng)
+    with _triggered_lock:
+
+        if message_id in _triggered_messages:
+            print(f'Bỏ qua lần gọi AI trùng cho tin nhắn {message_id}')
+            return
+
+        _triggered_messages.add(message_id)
+
+        if len(_triggered_messages) > 1000:
+            _triggered_messages.clear()
+
+    socketio.start_background_task(
+        reply_as_ai, conversation_id, sender_id, message_id
+    )

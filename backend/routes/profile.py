@@ -3,6 +3,7 @@ from backend.database import get_db
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
 from backend.extensions import socketio
+from backend.username_utils import normalize_username, find_user_by_username
 import os
 import uuid
 from pathlib import Path
@@ -15,7 +16,7 @@ def update_profile():
     data = request.get_json()
 
     userid = data.get('userid', '').strip()
-    username = data.get('username', '').strip()
+    username = normalize_username(data.get('username', ''))
 
     if userid == '' or username == '':
         return jsonify({
@@ -46,17 +47,9 @@ def update_profile():
             'message': 'Không tìm thấy người dùng'
         }), 404
 
-    cursor.execute(
-        '''
-        SELECT id
-        FROM users
-        WHERE username = %s
-        AND userid != %s
-        ''',
-        (username, userid)
+    existing_user = find_user_by_username(
+        cursor, username, exclude_userid=userid
     )
-
-    existing_user = cursor.fetchone()
 
     if existing_user:
         cursor.close()

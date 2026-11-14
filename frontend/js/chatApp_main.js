@@ -131,6 +131,22 @@ const callVideo = $('.call_video')
 const callEnd = $('.call_end')
 const callRemoteVideo = $('.call_remote_video')
 const callLocalVideo = $('.call_local_video')
+// GROUP
+const createGroupBtns = document.querySelectorAll('#createGroupBtn')
+const createGroupModal = $('#createGroupModal')
+const closeCreateGroupBtn = $('#closeCreateGroup')
+const cancelCreateGroupBtn = $('#cancelCreateGroup')
+const submitCreateGroupBtn = $('#submitCreateGroup')
+const groupAvatarPick = $('#groupAvatarPick')
+const groupAvatarInput = $('#groupAvatarInput')
+const groupAvatarPreview = $('#groupAvatarPreview')
+const groupName = $('#groupName')
+const groupDesc = $('#groupDesc')
+const groupNameCount = $('#groupNameCount')
+const groupDescCount = $('#groupDescCount')
+const groupSelectedCount = $('#groupSelectedCount')
+const groupMemberSearch = $('#groupMemberSearch')
+const groupMemberList = $('#groupMemberList')
 
 // list friend
 const friendList = $('#friendList')
@@ -143,6 +159,45 @@ const cancelRemoveFriend = $('#cancelRemoveFriend')
 const confirmRemoveFriend = $('#confirmRemoveFriend')
 const removeFriendName = $('#removeFriendName')
 const friendSearch = $('#friendSearch')
+
+const moreBtn = $('#btnMore')
+const infoPanel = $('#infoPanel')
+const closeInfoPanelBtn = $('#closeInfoPanel')
+const infoAvatar = $('#infoAvatar')
+const infoName = $('#infoName')
+const infoSub = $('#infoSub')
+const infoCreateGroup = $('#infoCreateGroup')
+const infoAddMember = $('#infoAddMember')
+const infoCommonGroups = $('#infoCommonGroups')
+const infoCommonCount = $('#infoCommonCount')
+const infoCommonList = $('#infoCommonList')
+const infoMembers = $('#infoMembers')
+const infoMemberCount = $('#infoMemberCount')
+const infoMemberList = $('#infoMemberList')
+const infoTabs = $('#infoTabs')
+const infoMediaList = $('#infoMediaList')
+const infoDeleteConv = $('#infoDeleteConv')
+const infoLeaveGroup = $('#infoLeaveGroup')
+
+const groupList = $('#groupList')
+const groupCount = $('#groupCount')
+const groupModalTitle = $('#groupModalTitle')
+const groupInfoFields = $('#groupInfoFields')
+
+const refreshAiModal = $('#refreshAiModal')
+const closeRefreshAiBtn = $('#closeRefreshAi')
+const cancelRefreshAiBtn = $('#cancelRefreshAi')
+const confirmRefreshAiBtn = $('#confirmRefreshAi')
+
+const leaveGroupModal = $('#leaveGroupModal')
+const closeLeaveGroupBtn = $('#closeLeaveGroup')
+const cancelLeaveGroupBtn = $('#cancelLeaveGroup')
+const confirmLeaveGroupBtn = $('#confirmLeaveGroup')
+const leaveGroupText = $('#leaveGroupText')
+
+const unreadBadge = $('#unreadBadge')
+
+const groupSearch = $('#groupSearch')
 
 const sidebarItems = document.querySelectorAll('.sidebar_item')
 const pageMap = {
@@ -179,6 +234,16 @@ const chatApp = {
     typingHideTimers: {},
     pendingImage: null,
     pendingImageUrl: null,
+    groups: [],
+    groupInfo: null,
+    groupModalMode: 'create',
+    groupModalConversationId: null,
+    leaveGroupTarget: null,
+    confirmAction: null,
+    loadedConversationId: null,
+    unreadMap: {},
+    infoTab: 'image',
+    infoMedia: { images: [], files: [], links: [] },
 
     callType: 'voice',
 
@@ -198,11 +263,26 @@ const chatApp = {
     remoteAudio: null,
     pendingIceCandidates: [],
 
+    // GROUP
+    groupMembers: [],
+    groupAvatarFile: null,
+    groupAvatarUrl: null,
+
     socket: null,
     conversations: [],
     config: JSON.parse(localStorage.getItem(LOGIN_STORAGE_KEY)) || {},
 
     // ============ ĐANG NHẮN... ============
+
+    // Tổng số tin chưa đọc hiện ở icon Tin nhắn trên sidebar
+    updateUnreadBadge: function () {
+
+        const total = Object.values(this.unreadMap)
+            .reduce((sum, count) => sum + count, 0)
+
+        unreadBadge.textContent = total > 99 ? '99+' : total
+        unreadBadge.style.display = total > 0 ? 'flex' : 'none'
+    },
 
     // Người dùng đang gõ: báo cho đối phương (tối đa 1 lần / 2 giây)
     handleTyping: function () {
@@ -322,6 +402,742 @@ const chatApp = {
         }
     },
     // ==============================================
+    // options: { mode: 'create' | 'add', conversationId, preselect }
+    openCreateGroup: async function (options = {}) {
+
+        this.groupModalMode = options.mode || 'create'
+        this.groupModalConversationId = options.conversationId || null
+
+        const isAdd = this.groupModalMode === 'add'
+
+        groupModalTitle.textContent = isAdd ? 'Thêm thành viên' : 'Tạo nhóm mới'
+        groupInfoFields.style.display = isAdd ? 'none' : ''
+        submitCreateGroupBtn.textContent = isAdd ? 'Thêm' : 'Tạo nhóm'
+
+        // Làm sạch form
+        groupName.value = ''
+        groupDesc.value = ''
+        groupMemberSearch.value = ''
+        groupNameCount.textContent = '0/50'
+        groupDescCount.textContent = '0/200'
+
+        this.groupMembers = options.preselect ? [options.preselect] : []
+        this.clearGroupAvatar()
+
+        createGroupModal.classList.add('active')
+
+        await this.loadFriends()
+
+        this.renderGroupMembers()
+        this.updateGroupForm()
+
+        if (!isAdd) {
+            groupName.focus()
+        }
+    },
+
+    closeCreateGroup: function () {
+        createGroupModal.classList.remove('active')
+        this.clearGroupAvatar()
+    },
+
+    // Bạn bè có thể chọn (chế độ thêm: bỏ những người đã ở trong nhóm)
+    getGroupCandidates: function () {
+        if (this.groupModalMode !== 'add' || !this.groupInfo) {
+            return this.friends
+        }
+        const memberIds = this.groupInfo.members.map(member => member.id)
+        return this.friends.filter(friend => !memberIds.includes(friend.id))
+    },
+
+    clearGroupAvatar: function () {
+
+        if (this.groupAvatarUrl) {
+            URL.revokeObjectURL(this.groupAvatarUrl)
+        }
+
+        this.groupAvatarFile = null
+        this.groupAvatarUrl = null
+        groupAvatarInput.value = ''
+        groupAvatarPreview.hidden = true
+        groupAvatarPreview.removeAttribute('src')
+    },
+
+    renderGroupMembers: function () {
+        const candidates = this.getGroupCandidates()
+        if (candidates.length === 0) {
+            groupMemberList.innerHTML =
+                this.groupModalMode === 'add'
+                    ? '<div class="friend_empty">Không còn bạn bè nào để thêm vào nhóm</div>'
+                    : '<div class="friend_empty">Bạn chưa có bạn bè để thêm vào nhóm</div>'
+            return
+        }
+
+        const keyword = this.removeAccent(groupMemberSearch.value.trim())
+
+        const list = candidates.filter(friend =>
+            this.removeAccent(friend.username).includes(keyword)
+        )
+
+        if (list.length === 0) {
+            groupMemberList.innerHTML =
+                '<div class="friend_empty">Không tìm thấy bạn bè</div>'
+            return
+        }
+
+        groupMemberList.innerHTML = list.map(friend => {
+
+            const checked =
+                this.groupMembers.includes(friend.id) ? 'checked' : ''
+
+            return `
+            <label class="group_member_item">
+                <input type="checkbox" class="group_member_check"
+                       value="${friend.id}" ${checked}>
+                <img src="${this.getAvatarUrl(friend.avatar)}" alt="">
+                <div class="group_member_info">
+                    <h4>${this.escapeHtml(friend.username)}</h4>
+                    <p>${this.escapeHtml(friend.userid)}</p>
+                </div>
+            </label>
+        `
+        }).join('')
+    },
+
+    updateGroupForm: function () {
+
+        groupSelectedCount.textContent =
+            `Đã chọn: ${this.groupMembers.length}`
+
+        const needName = this.groupModalMode === 'create'
+
+        submitCreateGroupBtn.disabled =
+            this.groupMembers.length === 0 ||
+            (needName && groupName.value.trim() === '')
+    },
+
+    submitCreateGroup: async function () {
+
+        if (this.groupMembers.length === 0) {
+            return
+        }
+
+        const isAdd = this.groupModalMode === 'add'
+        const name = groupName.value.trim()
+
+        if (!isAdd && !name) {
+            return
+        }
+
+        submitCreateGroupBtn.disabled = true
+        submitCreateGroupBtn.textContent = 'Đang xử lý...'
+
+        try {
+            // ----- Thêm thành viên vào nhóm có sẵn -----
+            if (isAdd) {
+
+                const conversationId = this.groupModalConversationId
+
+                const response = await fetch(
+                    `${API_URL}/api/groups/${conversationId}/members`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_id: this.config.user.id,
+                            member_ids: this.groupMembers
+                        })
+                    }
+                )
+
+                const result = await response.json()
+
+                if (!result.success) {
+                    alert(result.message)
+                    return
+                }
+
+                this.closeCreateGroup()
+                this.loadGroupInfo(conversationId)
+                this.loadConversations()
+                this.loadGroups()
+                return
+            }
+
+            // ----- Tạo nhóm mới -----
+            const formData = new FormData()
+
+            formData.append('creator_id', this.config.user.id)
+            formData.append('name', name)
+            formData.append('description', groupDesc.value.trim())
+            formData.append('members', JSON.stringify(this.groupMembers))
+
+            if (this.groupAvatarFile) {
+                formData.append('avatar', this.groupAvatarFile)
+            }
+
+            const response = await fetch(`${API_URL}/api/groups`, {
+                method: 'POST',
+                body: formData
+            })
+
+            const result = await response.json()
+
+            if (!result.success) {
+                alert(result.message)
+                return
+            }
+
+            this.closeCreateGroup()
+
+            await this.loadConversations()
+
+            // Mở luôn nhóm vừa tạo ở trang Tin nhắn
+            this.showPage('message')
+
+            const item = conversationList.querySelector(
+                `[data-conversation-id="${result.conversation_id}"]`
+            )
+
+            if (item) {
+                item.click()
+            }
+
+        } catch (error) {
+            console.error('Lỗi tạo nhóm / thêm thành viên:', error)
+            alert('Không thể thực hiện. Vui lòng thử lại.')
+
+        } finally {
+            submitCreateGroupBtn.textContent = isAdd ? 'Thêm' : 'Tạo nhóm'
+            this.updateGroupForm()
+        }
+    },
+    //=================================
+    // ============ TIỆN ÍCH ============
+    getAvatarUrl: function (path) {
+        return !path || path === 'default_avt.png'
+            ? './assests/img/default_avt.png'
+            : `${API_URL}${path}`
+    },
+
+    // Đóng khung chat nếu đang mở đúng hội thoại này
+    closeConversationIfOpen: function (conversationId) {
+
+        const isOpen =
+            this.currentConversation &&
+            String(this.currentConversation.conversation_id) ===
+            String(conversationId)
+
+        if (!isOpen) {
+            return
+        }
+
+        this.closeInfoPanel()
+        this.leaveFriendChat()
+        this.currentConversation = null
+        this.clearReply()
+        chatBody.innerHTML = ''
+        chatRoom.style.display = 'none'
+        chatEmpty.style.display = 'flex'
+    },
+
+    // ============ PANEL THÔNG TIN ============
+    openInfoPanel: function () {
+
+        const conversation = this.currentConversation
+
+        if (!conversation) {
+            return
+        }
+
+        const user = conversation.user
+        const isGroup = !!user.is_group
+        const isBot = !!user.is_bot
+        const isFriendChat = !isGroup && !isBot
+
+        infoAvatar.src = this.getAvatarUrl(user.avatar)
+        infoName.textContent = user.username
+
+        infoSub.textContent =
+            isGroup
+                ? (user.description || `${user.member_count} thành viên`)
+                : isBot
+                    ? 'Trợ lý AI'
+                    : user.userid
+
+        // Hiện / ẩn từng phần theo loại hội thoại
+        infoCreateGroup.style.display = isFriendChat ? '' : 'none'
+        infoCommonGroups.style.display = isFriendChat ? '' : 'none'
+        infoAddMember.style.display = isGroup ? '' : 'none'
+        infoMembers.style.display = isGroup ? '' : 'none'
+        infoLeaveGroup.style.display = isGroup ? '' : 'none'
+        infoDeleteConv.style.display = isBot ? 'none' : ''
+
+        infoPanel.classList.add('open')
+        chatRoom.classList.add('info_open')
+
+        this.loadInfoMedia()
+
+        if (isGroup) {
+            this.loadGroupInfo(conversation.conversation_id)
+        } else if (isFriendChat) {
+            this.loadCommonGroups(user.id)
+        }
+    },
+
+    closeInfoPanel: function () {
+        infoPanel.classList.remove('open')
+        chatRoom.classList.remove('info_open')
+    },
+
+    loadInfoMedia: async function () {
+
+        if (!this.currentConversation) {
+            return
+        }
+
+        try {
+            const response = await fetch(
+                `${API_URL}/api/conversations/${this.currentConversation.conversation_id}` +
+                `/media?user_id=${this.config.user.id}`
+            )
+
+            const result = await response.json()
+
+            if (!result.success) {
+                console.error(result.message)
+                return
+            }
+
+            this.infoMedia = {
+                images: result.images,
+                files: result.files,
+                links: result.links
+            }
+
+            this.renderInfoMedia()
+
+        } catch (error) {
+            console.error('Lỗi tải ảnh/file/link:', error)
+        }
+    },
+
+    // Gom theo ngày: "Ngày 23 Tháng 10"
+    renderMediaByDate: function (items, renderItem, wrapperClass) {
+
+        let html = ''
+        let lastDay = ''
+
+        items.forEach(item => {
+
+            const day = item.created_at.slice(0, 10)
+
+            if (day !== lastDay) {
+
+                if (lastDay) {
+                    html += '</div>'
+                }
+
+                const [, month, date] = day.split('-')
+
+                html += `
+                <div class="info_date">Ngày ${Number(date)} Tháng ${Number(month)}</div>
+                <div class="${wrapperClass}">
+            `
+                lastDay = day
+            }
+
+            html += renderItem(item)
+        })
+
+        return html ? html + '</div>' : ''
+    },
+
+    renderInfoMedia: function () {
+
+        infoTabs.querySelectorAll('button').forEach(button => {
+            button.classList.toggle('active', button.dataset.tab === this.infoTab)
+        })
+
+        let html = ''
+
+        if (this.infoTab === 'image') {
+
+            html = this.renderMediaByDate(
+                this.infoMedia.images,
+                item => `<img class="info_media_img"
+                          src="${this.escapeHtml(item.content)}"
+                          alt="" loading="lazy">`,
+                'info_image_grid'
+            )
+
+            if (!html) html = '<div class="info_empty">Chưa có ảnh nào</div>'
+
+        } else if (this.infoTab === 'file') {
+
+            html = this.renderMediaByDate(
+                this.infoMedia.files,
+                item => `<a class="info_file" target="_blank" rel="noopener"
+                        href="${this.escapeHtml(this.getFileViewUrl(item.content))}">
+                        <i class="fa-regular fa-file"></i>
+                        <span>${this.escapeHtml(item.file_name)}</span>
+                     </a>`,
+                'info_file_list'
+            )
+
+            if (!html) html = '<div class="info_empty">Chưa có file nào</div>'
+
+        } else {
+
+            html = this.renderMediaByDate(
+                this.infoMedia.links,
+                item => `<a class="info_link" target="_blank" rel="noopener noreferrer"
+                        href="${this.escapeHtml(item.url)}">
+                        <i class="fa-solid fa-link"></i>
+                        <span>${this.escapeHtml(item.url)}</span>
+                     </a>`,
+                'info_link_list'
+            )
+
+            if (!html) html = '<div class="info_empty">Chưa có link nào</div>'
+        }
+
+        infoMediaList.innerHTML = html
+    },
+
+    // ----- Chat 1-1: nhóm chung -----
+    loadCommonGroups: async function (friendId) {
+
+        infoCommonCount.textContent = '0'
+        infoCommonList.innerHTML = ''
+
+        try {
+            const response = await fetch(
+                `${API_URL}/api/groups/common?user_id=${this.config.user.id}&friend_id=${friendId}`
+            )
+
+            const result = await response.json()
+
+            if (!result.success) {
+                return
+            }
+
+            infoCommonCount.textContent = result.groups.length
+
+            if (result.groups.length === 0) {
+                infoCommonList.innerHTML =
+                    '<div class="info_empty">Chưa có nhóm chung</div>'
+                return
+            }
+
+            infoCommonList.innerHTML = result.groups.map(group => `
+            <div class="info_row clickable" data-conversation-id="${group.conversation_id}">
+                <img src="${this.getAvatarUrl(group.avatar)}" alt="">
+                <div class="info_row_text">
+                    <b>${this.escapeHtml(group.name)}</b>
+                    <small>${group.member_count} thành viên</small>
+                </div>
+            </div>
+        `).join('')
+
+        } catch (error) {
+            console.error('Lỗi tải nhóm chung:', error)
+        }
+    },
+
+    // ----- Chat nhóm: thông tin + thành viên -----
+    loadGroupInfo: async function (conversationId) {
+
+        try {
+            const response = await fetch(
+                `${API_URL}/api/groups/${conversationId}?user_id=${this.config.user.id}`
+            )
+
+            const result = await response.json()
+
+            if (!result.success) {
+                return
+            }
+
+            const group = result.group
+            const count = group.members.length
+
+            this.groupInfo = group
+
+            // Cập nhật số thành viên ở header và trong dữ liệu conversation
+            if (
+                this.currentConversation &&
+                String(this.currentConversation.conversation_id) === String(conversationId)
+            ) {
+                this.currentConversation.user.member_count = count
+                this.currentConversation.user.description = group.description
+                chatUserStatus.textContent = `${count} thành viên`
+                infoSub.textContent = group.description || `${count} thành viên`
+            }
+
+            infoMemberCount.textContent = count
+
+            const isAdmin = group.my_role === 'admin'
+
+            infoMemberList.innerHTML = group.members.map(member => {
+
+                const isMe = String(member.id) === String(this.config.user.id)
+
+                return `
+                <div class="info_row">
+                    <img src="${this.getAvatarUrl(member.avatar)}" alt="">
+                    <div class="info_row_text">
+                        <b>${this.escapeHtml(member.username)}${isMe ? ' (Bạn)' : ''}</b>
+                        <small>${this.escapeHtml(member.userid)}</small>
+                    </div>
+                    ${member.role === 'admin'
+                        ? '<span class="info_badge">Trưởng nhóm</span>'
+                        : ''}
+                    ${isAdmin && !isMe
+                        ? `<button type="button" class="info_member_kick"
+                                   data-user-id="${member.id}"
+                                   title="Xóa khỏi nhóm">
+                               <i class="fa-solid fa-user-xmark"></i>
+                           </button>`
+                        : ''}
+                </div>
+            `
+            }).join('')
+
+            // Còn 1 người thì chỉ có thể giải tán nhóm
+            infoLeaveGroup.querySelector('span').textContent =
+                count > 1 ? 'Rời nhóm' : 'Giải tán nhóm'
+
+        } catch (error) {
+            console.error('Lỗi tải thông tin nhóm:', error)
+        }
+    },
+
+    // ============ DANH SÁCH NHÓM (TRANG BẠN BÈ) ============
+    loadGroups: async function () {
+
+        try {
+            const response = await fetch(
+                `${API_URL}/api/groups?user_id=${this.config.user.id}`
+            )
+
+            const result = await response.json()
+
+            if (!result.success) {
+                return
+            }
+
+            this.groups = result.groups
+            this.renderGroups()
+
+        } catch (error) {
+            console.error('Lỗi loadGroups:', error)
+        }
+    },
+
+    renderGroups: function () {
+        // Số lượng luôn là tổng số nhóm
+        groupCount.textContent = `${this.groups.length} nhóm`
+
+        if (this.groups.length === 0) {
+            groupList.innerHTML =
+                '<div class="friend_empty">Bạn chưa tham gia nhóm nào</div>'
+            return
+        }
+
+        const keyword = this.removeAccent(groupSearch.value.trim())
+
+        const list = this.groups.filter(group =>
+            this.removeAccent(group.name).includes(keyword)
+        )
+
+        if (list.length === 0) {
+            groupList.innerHTML =
+                '<div class="friend_empty">Không tìm thấy nhóm</div>'
+            return
+        }
+
+        groupList.innerHTML = list.map(group => `
+        <div class="friend_item" data-conversation-id="${group.conversation_id}">
+            <div class="friend_avatar ${group.avatar ? '' : 'group_avatar'}">
+                ${group.avatar
+                ? `<img src="${API_URL}${group.avatar}" alt="">`
+                : '<i class="fa-solid fa-users"></i>'}
+            </div>
+            <div class="friend_info">
+                <h3>${this.escapeHtml(group.name)}</h3>
+                <p>${group.member_count} thành viên</p>
+            </div>
+            <div class="friend_item_actions">
+                <button class="btn friend_item-act"
+                        data-action="chat" title="Nhắn tin">
+                    <i class="fa-regular fa-comment"></i>
+                </button>
+                <button class="btn friend_item-act"
+                        data-action="more" title="Tùy chọn">
+                    <i class="fa-solid fa-ellipsis"></i>
+                </button>
+            </div>
+        </div>
+    `).join('')
+    },
+
+    // Mở chat của một nhóm (inFriendPage = true: hiện ngay trong trang Bạn bè)
+    openGroupChat: async function (conversationId, inFriendPage) {
+
+        try {
+            const response = await fetch(`${API_URL}/api/groups/open`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: this.config.user.id,
+                    conversation_id: conversationId
+                })
+            })
+
+            const result = await response.json()
+
+            if (!result.success) {
+                alert(result.message)
+                return
+            }
+
+            await this.loadConversations()
+
+            if (inFriendPage) {
+                this.showChatInFriendPage()
+            }
+
+            const item = conversationList.querySelector(
+                `[data-conversation-id="${conversationId}"]`
+            )
+
+            if (item) {
+                item.click()
+            }
+
+        } catch (error) {
+            console.error('Lỗi mở nhóm:', error)
+        }
+    },
+
+    // ============ RỜI NHÓM / GIẢI TÁN ============
+    // group: { conversation_id, name, member_count, role }
+    openLeaveGroup: function (group) {
+        const isLast = group.member_count <= 1
+        const name = this.escapeHtml(group.name)
+
+        leaveGroupText.innerHTML = isLast
+            ? `Bạn là thành viên cuối cùng của nhóm <strong>${name}</strong>.<br>
+           Giải tán nhóm sẽ xóa toàn bộ tin nhắn và không thể khôi phục.`
+            : `Bạn có chắc chắn muốn rời nhóm <strong>${name}</strong>?`
+
+        confirmLeaveGroupBtn.textContent = isLast ? 'Giải tán' : 'Rời nhóm'
+
+        this.confirmAction = () => this.leaveGroup(group.conversation_id)
+
+        leaveGroupModal.classList.add('active')
+    },
+
+    openKickMember: function (member) {
+
+        const group = this.groupInfo
+
+        leaveGroupText.innerHTML =
+            `Bạn có chắc chắn muốn xóa <strong>${this.escapeHtml(member.username)}</strong>
+         khỏi nhóm <strong>${this.escapeHtml(group.name)}</strong>?`
+
+        confirmLeaveGroupBtn.textContent = 'Xóa khỏi nhóm'
+
+        this.confirmAction = () => this.kickMember(group.id, member.id)
+
+        leaveGroupModal.classList.add('active')
+    },
+
+    closeLeaveGroupModal: function () {
+        this.confirmAction = null
+        leaveGroupModal.classList.remove('active')
+    },
+
+    kickMember: async function (conversationId, memberId) {
+
+        try {
+            const response = await fetch(
+                `${API_URL}/api/groups/${conversationId}/members/${memberId}/remove`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: this.config.user.id })
+                }
+            )
+
+            const result = await response.json()
+
+            if (!result.success) {
+                alert(result.message)
+                return
+            }
+
+            this.loadGroupInfo(conversationId)
+            this.loadConversations()
+            this.loadGroups()
+
+        } catch (error) {
+            console.error('Lỗi xóa thành viên:', error)
+        }
+    },
+
+    leaveGroup: async function (conversationId) {
+
+        try {
+            const response = await fetch(
+                `${API_URL}/api/groups/${conversationId}/leave`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: this.config.user.id })
+                }
+            )
+
+            const result = await response.json()
+
+            if (!result.success) {
+                alert(result.message)
+                return
+            }
+
+            this.closeConversationIfOpen(conversationId)
+            this.loadConversations()
+            this.loadGroups()
+
+        } catch (error) {
+            console.error('Lỗi rời nhóm:', error)
+        }
+    },
+
+    // ============ CHUYỂN TAB TRANG BẠN BÈ ============
+    showFriendSection: function (name) {
+
+        const pages = {
+            friends: 'friendListPage',
+            groups: 'groupListPage'
+        }
+
+        if (!pages[name]) {
+            return
+        }
+
+        document.querySelectorAll('.friend_section').forEach(section => {
+            section.classList.remove('active')
+        })
+
+        $('#' + pages[name]).classList.add('active')
+
+        document.querySelectorAll('.friend_menu_item').forEach(item => {
+            item.classList.toggle('active', item.dataset.friendPage === name)
+        })
+    },
+
 
     escapeHtml: function (text) {
         return String(text ?? '')
@@ -1127,6 +1943,19 @@ const chatApp = {
     },
 
     loadMessages: async function (conversationId) {
+        const sameConversation = String(this.loadedConversationId) === String(conversationId)
+
+        const applyScroll = () => {
+            chatBody.scrollTop =
+                (!sameConversation || wasNearBottom)
+                    ? chatBody.scrollHeight
+                    : previousScrollTop
+        }
+
+        const wasNearBottom =
+            chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 120
+
+        const previousScrollTop = chatBody.scrollTop
         try {
             const userId = this.config.user.id
             const response = await fetch(
@@ -1207,8 +2036,8 @@ const chatApp = {
                                     alt="Ảnh đã gửi"
                                 >
                                 ${message.caption
-                                    ? `<p class="message_caption">${this.escapeHtml(message.caption)}</p>`
-                                    : ''}`
+                                ? `<p class="message_caption">${this.escapeHtml(message.caption)}</p>`
+                                : ''}`
                             : message.message_type === 'file'
                                 ?
                                 `${this.renderFileMessage(message)}`
@@ -1294,7 +2123,7 @@ const chatApp = {
                 )
                 this.decorateMessage(element, message)
             })
-
+            applyScroll()
             const messageImages =
                 chatBody.querySelectorAll('.message_image')
 
@@ -1317,18 +2146,8 @@ const chatApp = {
                     })
                 )
             }
-
-            const lastMessage =
-                chatBody.lastElementChild
-
-            if (lastMessage) {
-
-                lastMessage.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'end'
-                })
-
-            }
+            applyScroll()
+            this.loadedConversationId = conversationId
             this.handleVoiceEvents()
 
         } catch (error) {
@@ -1391,8 +2210,8 @@ const chatApp = {
                         alt="Ảnh đã gửi"
                     >
                     ${message.caption
-                                    ? `<p class="message_caption">${this.escapeHtml(message.caption)}</p>`
-                                    : ''}`
+                    ? `<p class="message_caption">${this.escapeHtml(message.caption)}</p>`
+                    : ''}`
                 : message.message_type === 'file'
                     ?
                     // `
@@ -1710,14 +2529,18 @@ const chatApp = {
         )
 
         const isBot = !!conversation.user.is_bot
+        const isGroup = !!conversation.user.is_group
 
-        // AI: bỏ nút gọi, hiện nút làm mới
-        callBtn.style.display = isBot ? 'none' : ''
-        callVideoBtn.style.display = isBot ? 'none' : ''
+        // AI và nhóm: ẩn nút gọi (gọi nhóm sẽ làm ở bước sau)
+        callBtn.style.display = (isBot || isGroup) ? 'none' : ''
+        callVideoBtn.style.display = (isBot || isGroup) ? 'none' : ''
         refreshAiBtn.style.display = isBot ? 'flex' : 'none'
 
         if (isBot) {
             chatUserStatus.textContent = 'Trợ lý AI • luôn sẵn sàng'
+        } else if (isGroup) {
+            chatUserStatus.textContent =
+                `${conversation.user.member_count} thành viên`
         } else {
             this.checkUserOnline(conversation.user.id)
         }
@@ -1728,6 +2551,11 @@ const chatApp = {
         this.loadMessages(
             conversation.conversation_id
         )
+        if (infoPanel.classList.contains('open')) {
+            this.openInfoPanel()
+        }
+        this.unreadMap[conversation.conversation_id] = 0
+        this.updateUnreadBadge()
     },
 
     updateNotificationBadge: function (hasNotification) {
@@ -2141,6 +2969,19 @@ const chatApp = {
             content.prepend(reply)
         }
 
+        // Chat nhóm: hiện tên người gửi ở tin đầu của mỗi lượt
+        if (
+            !isMine &&
+            this.currentConversation &&
+            this.currentConversation.user.is_group &&
+            !element.classList.contains('message_group')
+        ) {
+            const sender = document.createElement('span')
+            sender.className = 'message_sender'
+            sender.textContent = message.sender_username || ''
+            content.prepend(sender)
+        }
+
         // 3. Bọc tin nhắn + nút hover
         const row = document.createElement('div')
         row.className = 'message_row'
@@ -2349,6 +3190,55 @@ const chatApp = {
         deleteConversationModal.classList.remove('active')
     },
 
+    // ============ LÀM MỚI CUỘC TRÒ CHUYỆN VỚI AI ============
+    openRefreshAi: function () {
+
+        if (
+            !this.currentConversation ||
+            !this.currentConversation.user.is_bot
+        ) {
+            return
+        }
+
+        refreshAiModal.classList.add('active')
+    },
+
+    closeRefreshAiModal: function () {
+        refreshAiModal.classList.remove('active')
+    },
+
+    refreshAiConversation: async function () {
+
+        if (
+            !this.currentConversation ||
+            !this.currentConversation.user.is_bot
+        ) {
+            return
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/api/ai/reset`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: this.config.user.id })
+            })
+
+            const result = await response.json()
+
+            if (!result.success) {
+                alert(result.message)
+                return
+            }
+
+            this.clearReply()
+            this.loadMessages(this.currentConversation.conversation_id)
+            this.loadConversations()
+
+        } catch (error) {
+            console.error('Lỗi làm mới AI:', error)
+        }
+    },
+
     // ============ XÓA HỘI THOẠI ============
     deleteConversation: async function (conversationId) {
         try {
@@ -2422,6 +3312,7 @@ const chatApp = {
         const keyword = this.removeAccent(conversationSearch.value.trim())
         const items = conversationList.querySelectorAll('.conversation_item')
 
+
         let visibleCount = 0
 
         items.forEach(item => {
@@ -2440,8 +3331,12 @@ const chatApp = {
             const matchUnread =
                 this.currentFilter !== 'unread' || hasDot
 
-            // 3. Ẩn / hiện
-            const visible = matchName && matchUnread
+            // 3. Lọc nhóm
+            const matchGroup =
+                this.currentFilter !== 'group' ||
+                item.classList.contains('is_group_item')
+
+            const visible = matchName && matchUnread && matchGroup
             item.style.display = visible ? '' : 'none'
 
             if (visible) {
@@ -2492,12 +3387,11 @@ const chatApp = {
                             : `${API_URL}${user.avatar}`
 
                     let messagePreview = 'Chưa có tin nhắn'
-
+                    const isMine =
+                        !!conversation.last_message &&
+                        String(conversation.last_message.sender_id) ===
+                        String(this.config.user.id)
                     if (conversation.last_message) {
-
-                        const isMine =
-                            String(conversation.last_message.sender_id) ===
-                            String(this.config.user.id)
 
                         const messageType =
                             conversation.last_message.message_type
@@ -2543,6 +3437,16 @@ const chatApp = {
                                     : conversation.last_message.content
                         }
                     }
+                    // Nhóm: "Tên: nội dung"
+                    if (
+                        user.is_group &&
+                        !isMine &&
+                        conversation.last_message
+                    ) {
+                        messagePreview =
+                            `${this.escapeHtml(conversation.last_message.sender_username)}: ${messagePreview}`
+                    }
+
                     const timeText = conversation.last_message
                         ? this.formatMessageTime(conversation.last_message.created_at)
                         : ''
@@ -2590,29 +3494,49 @@ const chatApp = {
                     </div>
                 `
                 }).join('')
-            this.filterConversations()
 
-            // Conversation của AI: đánh dấu và không cho xóa
+            // Đánh dấu nhóm và AI (để lọc, và không cho xóa AI)
             result.conversations.forEach(conversation => {
 
-                if (!conversation.user.is_bot) {
-                    return
-                }
-
-                const aiItem = conversationList.querySelector(
+                const item = conversationList.querySelector(
                     `[data-conversation-id="${conversation.conversation_id}"]`
                 )
 
-                if (aiItem) {
-                    aiItem.classList.add('ai_item')
+                if (!item) {
+                    return
+                }
 
-                    const moreBtn = aiItem.querySelector('.conversation_more')
+                if (conversation.user.is_group) {
+                    item.classList.add('is_group_item')
+                }
 
-                    if (moreBtn) {
-                        moreBtn.remove()
+                if (conversation.user.is_bot) {
+                    item.classList.add('ai_item')
+
+                    const moreButton = item.querySelector('.conversation_more')
+
+                    if (moreButton) {
+                        moreButton.remove()
                     }
                 }
             })
+            this.filterConversations()
+
+            // Đếm tin chưa đọc cho icon Tin nhắn (cuộc trò chuyện đang mở tính là 0)
+            this.unreadMap = {}
+
+            result.conversations.forEach(conversation => {
+
+                const isOpen =
+                    this.currentConversation &&
+                    String(this.currentConversation.conversation_id) ===
+                    String(conversation.conversation_id)
+
+                this.unreadMap[conversation.conversation_id] =
+                    isOpen ? 0 : conversation.unread_count
+            })
+
+            this.updateUnreadBadge()
 
             if (this.currentConversation) {
                 const activeItem = conversationList.querySelector(
@@ -2697,6 +3621,34 @@ const chatApp = {
                 isMine
                     ? `Bạn: ${message.content}`
                     : message.content
+        }
+        // Nhóm: "Tên: nội dung"
+        const targetConversation = this.conversations.find(
+            item => String(item.conversation_id) === String(message.conversation_id)
+        )
+
+        if (
+            !isMine &&
+            targetConversation &&
+            targetConversation.user.is_group &&
+            message.message_type !== 'call'
+        ) {
+            messagePreview.textContent =
+                `${message.sender_username}: ${messagePreview.textContent}`
+        }
+
+        // Tin của người khác, và không đang mở cuộc trò chuyện đó: cộng thêm 1
+        const isOpenNow =
+            this.currentConversation &&
+            String(this.currentConversation.conversation_id) ===
+            String(message.conversation_id)
+
+        if (!isMine && !isOpenNow) {
+
+            this.unreadMap[message.conversation_id] =
+                (this.unreadMap[message.conversation_id] || 0) + 1
+
+            this.updateUnreadBadge()
         }
 
         // Cập nhật giờ
@@ -3243,11 +4195,7 @@ const chatApp = {
                 this.loadFriends()
             } catch (error) {
 
-                console.error(error)
-
-                alert(
-                    'Không thể kết nối đến máy chủ'
-                )
+                showServerError(passwordError, error)
             }
         }
 
@@ -3477,11 +4425,17 @@ const chatApp = {
             ])
         }
 
-        // Bấm menu bên trái trang Bạn bè -> thoát chat, quay lại nội dung bạn bè
+        // Bấm menu bên trái trang Bạn bè: thoát chat, đổi nội dung bên phải
         document.querySelectorAll('.friend_menu_item').forEach(menuItem => {
             menuItem.addEventListener('click', () => {
+
                 this.resumeFriendChat = false
                 this.leaveFriendChat()
+                this.showFriendSection(menuItem.dataset.friendPage)
+
+                if (menuItem.dataset.friendPage === 'groups') {
+                    this.loadGroups()
+                }
             })
         })
 
@@ -4792,43 +5746,286 @@ const chatApp = {
         })
 
         // ============ LÀM MỚI CUỘC TRÒ CHUYỆN VỚI AI ============
-        refreshAiBtn.onclick = async () => {
+        refreshAiBtn.onclick = () => this.openRefreshAi()
 
-            if (
-                !this.currentConversation ||
-                !this.currentConversation.user.is_bot
-            ) {
+        closeRefreshAiBtn.onclick = () => this.closeRefreshAiModal()
+        cancelRefreshAiBtn.onclick = () => this.closeRefreshAiModal()
+
+        // Bấm ra nền thì đóng
+        refreshAiModal.onclick = (e) => {
+            if (e.target === refreshAiModal) {
+                this.closeRefreshAiModal()
+            }
+        }
+
+        // Bấm "Làm mới" thì mới xóa thật
+        confirmRefreshAiBtn.onclick = async () => {
+            this.closeRefreshAiModal()
+            await this.refreshAiConversation()
+        }
+
+        // ============ POPUP TẠO NHÓM ============
+        createGroupBtns.forEach(button => {
+            button.onclick = () => this.openCreateGroup()
+        })
+
+        closeCreateGroupBtn.onclick = () => this.closeCreateGroup()
+        cancelCreateGroupBtn.onclick = () => this.closeCreateGroup()
+
+        createGroupModal.onclick = (e) => {
+            if (e.target === createGroupModal) {
+                this.closeCreateGroup()
+            }
+        }
+
+        // Chọn ảnh nhóm
+        groupAvatarPick.onclick = () => groupAvatarInput.click()
+
+        groupAvatarInput.onchange = () => {
+
+            const file = groupAvatarInput.files[0]
+
+            if (!file) {
                 return
             }
 
-            if (!confirm(
-                'Làm mới cuộc trò chuyện với AI?\n' +
-                'Toàn bộ tin nhắn sẽ bị xóa và AI sẽ quên nội dung đã trò chuyện.'
-            )) {
+            if (!file.type.startsWith('image/')) {
+                alert('Vui lòng chọn một tệp ảnh.')
+                groupAvatarInput.value = ''
                 return
             }
 
-            try {
-                const response = await fetch(`${API_URL}/api/ai/reset`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: this.config.user.id })
-                })
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Ảnh nhóm tối đa 5MB.')
+                groupAvatarInput.value = ''
+                return
+            }
 
-                const result = await response.json()
+            if (this.groupAvatarUrl) {
+                URL.revokeObjectURL(this.groupAvatarUrl)
+            }
 
-                if (!result.success) {
-                    alert(result.message)
-                    return
+            this.groupAvatarFile = file
+            this.groupAvatarUrl = URL.createObjectURL(file)
+
+            groupAvatarPreview.src = this.groupAvatarUrl
+            groupAvatarPreview.hidden = false
+        }
+
+        groupName.addEventListener('input', () => {
+            groupNameCount.textContent = `${groupName.value.length}/50`
+            this.updateGroupForm()
+        })
+
+        groupDesc.addEventListener('input', () => {
+            groupDescCount.textContent = `${groupDesc.value.length}/200`
+        })
+
+        groupMemberSearch.addEventListener('input', () => {
+            this.renderGroupMembers()
+        })
+
+        // Tick / bỏ tick thành viên
+        groupMemberList.addEventListener('change', (e) => {
+
+            const box = e.target.closest('.group_member_check')
+
+            if (!box) {
+                return
+            }
+
+            const id = Number(box.value)
+
+            if (box.checked) {
+                if (!this.groupMembers.includes(id)) {
+                    this.groupMembers.push(id)
                 }
-
-                this.clearReply()
-                this.loadMessages(this.currentConversation.conversation_id)
-                this.loadConversations()
-
-            } catch (error) {
-                console.error('Lỗi làm mới AI:', error)
+            } else {
+                this.groupMembers = this.groupMembers.filter(item => item !== id)
             }
+
+            this.updateGroupForm()
+        })
+
+        submitCreateGroupBtn.onclick = () => this.submitCreateGroup()
+
+        // ============ PANEL THÔNG TIN ============
+        moreBtn.onclick = () => {
+            if (infoPanel.classList.contains('open')) {
+                this.closeInfoPanel()
+            } else {
+                this.openInfoPanel()
+            }
+        }
+
+        closeInfoPanelBtn.onclick = () => this.closeInfoPanel()
+
+        // Đổi tab Ảnh / File / Link
+        infoTabs.addEventListener('click', (e) => {
+
+            const button = e.target.closest('button')
+
+            if (!button) {
+                return
+            }
+
+            this.infoTab = button.dataset.tab
+            this.renderInfoMedia()
+        })
+
+        // Bấm ảnh trong panel: phóng to bằng lightbox sẵn có
+        infoMediaList.addEventListener('click', (e) => {
+
+            const img = e.target.closest('.info_media_img')
+
+            if (!img) {
+                return
+            }
+
+            const lightbox = document.querySelector('.image_lightbox')
+
+            lightbox.querySelector('.image_lightbox_img').src = img.src
+            lightbox.classList.add('open')
+        })
+
+        // Chat 1-1: tạo nhóm với người đang chat
+        infoCreateGroup.onclick = () => {
+
+            const user = this.currentConversation.user
+
+            this.closeInfoPanel()
+            this.openCreateGroup({ preselect: user.id })
+        }
+
+        // Chat 1-1: bấm một nhóm chung để mở nhóm đó
+        infoCommonList.addEventListener('click', (e) => {
+
+            const row = e.target.closest('.info_row')
+
+            if (!row) {
+                return
+            }
+
+            this.closeInfoPanel()
+            this.openGroupChat(
+                row.dataset.conversationId,
+                friendContent.classList.contains('chat_mode')
+            )
+        })
+
+        // Chat nhóm: thêm thành viên
+        infoAddMember.onclick = () => {
+
+            this.openCreateGroup({
+                mode: 'add',
+                conversationId: this.currentConversation.conversation_id
+            })
+        }
+
+        // Chat nhóm: rời nhóm / giải tán
+        infoLeaveGroup.onclick = () => {
+
+            const group = this.groupInfo
+
+            if (!group) {
+                return
+            }
+
+            this.openLeaveGroup({
+                conversation_id: group.id,
+                name: group.name,
+                member_count: group.members.length,
+                role: group.my_role
+            })
+        }
+
+        // Xóa cuộc hội thoại (dùng dialog xác nhận sẵn có)
+        infoDeleteConv.onclick = () => {
+
+            const conversationId =
+                this.currentConversation.conversation_id
+
+            this.closeInfoPanel()
+            this.openDeleteConversation(conversationId)
+        }
+
+        // ============ DIALOG RỜI NHÓM ============
+        closeLeaveGroupBtn.onclick = () => this.closeLeaveGroupModal()
+        cancelLeaveGroupBtn.onclick = () => this.closeLeaveGroupModal()
+
+        leaveGroupModal.onclick = (e) => {
+            if (e.target === leaveGroupModal) {
+                this.closeLeaveGroupModal()
+            }
+        }
+
+        confirmLeaveGroupBtn.onclick = async () => {
+
+            const action = this.confirmAction
+
+            this.closeLeaveGroupModal()
+
+            if (action) {
+                await action()
+            }
+        }
+
+        // Admin bấm nút xóa thành viên (hiện khi hover)
+        infoMemberList.addEventListener('click', (e) => {
+
+            const button = e.target.closest('.info_member_kick')
+
+            if (!button || !this.groupInfo) {
+                return
+            }
+
+            const member = this.groupInfo.members.find(
+                item => String(item.id) === button.dataset.userId
+            )
+
+            if (member) {
+                this.openKickMember(member)
+            }
+        })
+
+        // ============ DANH SÁCH NHÓM (TRANG BẠN BÈ) ============
+        groupList.onclick = (e) => {
+
+            const button = e.target.closest('.friend_item-act')
+
+            if (!button) {
+                return
+            }
+
+            const item = button.closest('.friend_item')
+
+            const group = this.groups.find(
+                group => String(group.conversation_id) === item.dataset.conversationId
+            )
+
+            if (!group) {
+                return
+            }
+
+            // Nút 1: nhắn tin (hiện ngay trong trang Bạn bè)
+            if (button.dataset.action === 'chat') {
+                this.openGroupChat(group.conversation_id, true)
+                return
+            }
+
+            // Nút 2: rời nhóm / giải tán
+            this.showContextMenu(button, [
+                {
+                    icon: 'fa-right-from-bracket',
+                    text: group.member_count > 1 ? 'Rời nhóm' : 'Giải tán nhóm',
+                    danger: true,
+                    onClick: () => this.openLeaveGroup(group)
+                }
+            ])
+        }
+
+        groupSearch.oninput = () => {
+            this.renderGroups()
         }
     },
 
@@ -5135,12 +6332,31 @@ const chatApp = {
     `
         })
 
-        // this.socket.on('call_accepted', async (data) => {
-        //     this.callType = data.call_type || 'voice'
-        //     await this.openActiveCallWindow(data.user_id, this.callType)
-        //     await this.createOffer()
+        this.socket.on('group_created', () => {
+            this.loadConversations()
+            this.loadGroups()
+        })
 
-        // })
+        this.socket.on('group_updated', (data) => {
+
+            this.loadConversations()
+            this.loadGroups()
+
+            // Đang xem đúng nhóm này: cập nhật danh sách thành viên
+            if (
+                this.currentConversation &&
+                String(this.currentConversation.conversation_id) ===
+                String(data.conversation_id)
+            ) {
+                this.loadGroupInfo(data.conversation_id)
+            }
+        })
+
+        this.socket.on('group_removed', (data) => {
+            this.closeConversationIfOpen(data.conversation_id)
+            this.loadConversations()
+            this.loadGroups()
+        })
 
         this.socket.on('call_accepted', async (data) => {
             // Người nhận đã mở cửa sổ khi bấm "Chấp nhận" → chỉ người gọi xử lý tiếp
@@ -5370,6 +6586,7 @@ const chatApp = {
         this.loadFriendRequests()
         this.loadConversations()
         this.loadFriends()
+        this.loadGroups()
         this.loadIceServers()
         setInterval(() => { this.loadIceServers() }, 30 * 60 * 1000)
         setInterval(() => { this.loadFriendRequests() }, 10000)
